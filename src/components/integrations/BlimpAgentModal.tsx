@@ -1,8 +1,11 @@
 import { useState, useRef } from 'react';
-import { CheckCircle, Download, Upload, Monitor, Cpu, HardDrive, Wifi, AlertCircle, RefreshCw } from 'lucide-react';
+import {
+  CheckCircle, Download, Upload, Monitor, Cpu, HardDrive, Wifi,
+  AlertCircle, RefreshCw, Usb, Keyboard, Mouse, Server,
+} from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { clsx } from 'clsx';
-import type { AgentReport } from '../../types';
+import type { AgentReport, AgentPeripheral } from '../../types';
 import { parseAgentReport, buildAssetsFromReport } from '../../utils/agentImport';
 
 interface Props {
@@ -36,6 +39,21 @@ const INSTALL_COMMANDS: Record<OS, { run: string; service: string }> = {
   },
 };
 
+type PeripheralIconMap = Record<
+  AgentPeripheral['type'],
+  React.ComponentType<{ size?: number; className?: string }>
+>;
+
+const PERIPHERAL_ICONS: PeripheralIconMap = {
+  Keyboard,
+  Mouse,
+  Dock: Server,
+  Hub: Usb,
+  Webcam: Monitor,
+  Headset: Usb,
+  Other: Usb,
+};
+
 function CodeBlock({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -59,6 +77,7 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
   const [jsonText, setJsonText] = useState('');
   const [parseError, setParseError] = useState('');
   const [preview, setPreview] = useState<ReturnType<typeof buildAssetsFromReport> | null>(null);
+  const [parsedReport, setParsedReport] = useState<AgentReport | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const [discoverResult, setDiscoverResult] = useState<'found' | 'not-found' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -67,9 +86,11 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
     setJsonText(val);
     setParseError('');
     setPreview(null);
+    setParsedReport(null);
     if (!val.trim()) return;
     try {
       const report = parseAgentReport(val);
+      setParsedReport(report);
       setPreview(buildAssetsFromReport(report, integrationId));
     } catch (e: unknown) {
       setParseError(e instanceof Error ? e.message : 'Invalid JSON');
@@ -101,6 +122,7 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
       onClose();
       setJsonText('');
       setPreview(null);
+      setParsedReport(null);
     } catch (e: unknown) {
       setParseError(e instanceof Error ? e.message : 'Invalid report');
     }
@@ -109,9 +131,6 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
   function handleDiscover() {
     setDiscovering(true);
     setDiscoverResult(null);
-    // Try fetching from agent's local HTTP server
-    // In production: fetch('http://localhost:51723/report')
-    // In browser demo, this will typically be blocked by CORS/mixed-content unless agent is running
     fetch('http://localhost:51723/report', { signal: AbortSignal.timeout(4000) })
       .then((r) => r.json())
       .then((data) => {
@@ -162,7 +181,7 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
         {activeTab === 'install' && (
           <div className="space-y-4">
             <p className="text-xs text-gray-500">
-              Install the Blimp Agent on each machine to collect hardware specs, serial numbers, and EDID display data. The agent runs as a background service and exposes a local HTTP API.
+              Install the Blimp Agent on each machine to collect hardware specs, serial numbers, EDID display data, and connected peripherals (keyboards, mice, docks, hubs). The agent runs as a background service and exposes a local HTTP API.
             </p>
 
             {/* OS selector */}
@@ -187,7 +206,7 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
             <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl">
               <div>
                 <p className="text-xs font-semibold text-gray-800">blimp_agent.py</p>
-                <p className="text-xs text-gray-500">Python 3.9+ · No external dependencies · ~8 KB</p>
+                <p className="text-xs text-gray-500">Python 3.9+ · No external dependencies · ~14 KB</p>
               </div>
               <a
                 href="/blimp_agent.py"
@@ -227,6 +246,8 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
                 { icon: Monitor, label: 'Displays (EDID)', items: ['Manufacturer & model', 'Serial number', 'Resolution & year'] },
                 { icon: HardDrive, label: 'OS', items: ['Name & version', 'Build number', 'Architecture'] },
                 { icon: Wifi, label: 'Network', items: ['Hostname', 'IP addresses'] },
+                { icon: Keyboard, label: 'Keyboards & Mice', items: ['USB & Bluetooth', 'Manufacturer', 'Vendor / Product ID'] },
+                { icon: Usb, label: 'Docks & Peripherals', items: ['USB & Thunderbolt docks', 'Webcams & headsets', 'Hubs & adapters'] },
               ].map(({ icon: Icon, label, items }) => (
                 <div key={label} className="p-3 bg-gray-50 border border-gray-100 rounded-xl">
                   <div className="flex items-center gap-1.5 mb-2">
@@ -269,7 +290,7 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
 
             <textarea
               className="w-full h-36 border border-gray-300 rounded-xl p-3 font-mono text-xs resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder='{"version": "1.0.0", "deviceId": "...", ...}'
+              placeholder='{"version": "1.1.0", "deviceId": "...", ...}'
               value={jsonText}
               onChange={(e) => handleJsonChange(e.target.value)}
             />
@@ -289,7 +310,7 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
 
                 {/* Device */}
                 <div className="flex items-center gap-3 p-2 bg-white rounded-lg border border-green-100">
-                  <Cpu size={14} className="text-blue-500" />
+                  <Cpu size={14} className="text-blue-500 flex-shrink-0" />
                   <div>
                     <p className="text-xs font-medium text-gray-800">{preview.deviceAsset.name}</p>
                     <p className="text-xs text-gray-500">
@@ -301,7 +322,7 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
                 {/* Monitors */}
                 {preview.monitorAssets.map((m) => (
                   <div key={m.id} className="flex items-center gap-3 p-2 bg-white rounded-lg border border-green-100">
-                    <Monitor size={14} className="text-purple-500" />
+                    <Monitor size={14} className="text-purple-500 flex-shrink-0" />
                     <div>
                       <p className="text-xs font-medium text-gray-800">{m.name}</p>
                       <p className="text-xs text-gray-500">{m.serial} · via EDID</p>
@@ -312,6 +333,35 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
                 {preview.displayCount > preview.externalDisplayCount && (
                   <p className="text-xs text-green-700">
                     + {preview.displayCount - preview.externalDisplayCount} built-in display(s) detected (not imported as separate assets)
+                  </p>
+                )}
+
+                {/* Peripherals */}
+                {preview.peripheralAssets.length > 0 && (
+                  <>
+                    {preview.peripheralAssets.map((p, idx) => {
+                      const rawPeripheral = parsedReport?.peripherals?.filter((r) => !r.isBuiltIn)[idx];
+                      const pType = rawPeripheral?.type ?? 'Other';
+                      const Icon = PERIPHERAL_ICONS[pType];
+                      const connLabel = rawPeripheral?.connectionType ?? 'USB';
+                      return (
+                        <div key={p.id} className="flex items-center gap-3 p-2 bg-white rounded-lg border border-green-100">
+                          <Icon size={14} className="text-orange-500 flex-shrink-0" />
+                          <div>
+                            <p className="text-xs font-medium text-gray-800">{p.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {pType} · {connLabel}{p.make !== 'Unknown' ? ` · ${p.make}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+
+                {preview.peripheralCount === 0 && (
+                  <p className="text-xs text-green-700 italic">
+                    No external peripherals detected (requires agent v1.1.0+)
                   </p>
                 )}
               </div>

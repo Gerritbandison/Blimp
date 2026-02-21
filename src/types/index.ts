@@ -233,6 +233,17 @@ export interface AgentDisplay {
   edidVersion?: string;
 }
 
+export interface AgentPeripheral {
+  type: 'Keyboard' | 'Mouse' | 'Dock' | 'Hub' | 'Webcam' | 'Headset' | 'Other';
+  name: string;
+  manufacturer?: string;
+  serial?: string;
+  vendorId?: string;
+  productId?: string;
+  connectionType: 'USB' | 'Bluetooth' | 'Thunderbolt' | 'Other';
+  isBuiltIn: boolean;
+}
+
 export interface AgentReport {
   version: string;
   generatedAt: string;
@@ -258,6 +269,7 @@ export interface AgentReport {
     ipAddresses: string[];
   };
   displays: AgentDisplay[];
+  peripherals: AgentPeripheral[];
 }
 
 export interface IntegrationConfig {

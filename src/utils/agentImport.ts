@@ -5,9 +5,10 @@
  * Blimp Asset records:
  *   - One Asset for the host device (Laptop / Desktop / Server)
  *   - One Monitor Asset per external display detected via EDID
+ *   - One Peripheral Asset per non-built-in peripheral (keyboard, mouse, dock, etc.)
  */
 
-import type { Asset, AssetType, AgentReport, AgentDisplay } from '../types';
+import type { Asset, AssetType, AgentReport, AgentDisplay, AgentPeripheral } from '../types';
 
 // ─── EDID vendor ID → manufacturer name map ──────────────────────────────────
 const EDID_VENDORS: Record<string, string> = {
@@ -67,20 +68,24 @@ export function parseAgentReport(raw: string): AgentReport {
   if (!data.version || !data.deviceId || !data.hardware) {
     throw new Error('Invalid Blimp Agent report — missing required fields.');
   }
+  // Ensure peripherals array exists (older agent versions won't have it)
+  if (!data.peripherals) data.peripherals = [];
   return data;
 }
 
 export interface ImportPreview {
   deviceAsset: Asset;
   monitorAssets: Asset[];
+  peripheralAssets: Asset[];
   totalAssets: number;
   displayCount: number;
   externalDisplayCount: number;
+  peripheralCount: number;
 }
 
 /** Convert an AgentReport into a list of Blimp Asset objects (preview — not yet saved). */
 export function buildAssetsFromReport(report: AgentReport, integrationId: string): ImportPreview {
-  const { hardware, os, displays, deviceId, generatedAt } = report;
+  const { hardware, os, displays, peripherals = [], deviceId, generatedAt } = report;
 
   const storageStr = hardware.storage
     .map((s) => `${s.totalGB} GB (${s.label})`)
@@ -150,11 +155,51 @@ export function buildAssetsFromReport(report: AgentReport, integrationId: string
     };
   });
 
+  // Build peripheral assets — skip built-in devices (touchpad, internal keyboard)
+  const externalPeripherals = (peripherals as AgentPeripheral[]).filter((p) => !p.isBuiltIn);
+
+  const peripheralAssets: Asset[] = externalPeripherals.map((p, idx) => {
+    const makeStr = p.manufacturer || 'Unknown';
+    const tagSeed = p.serial
+      ? p.serial
+      : p.vendorId
+      ? `${(p.vendorId).replace('0x', '')}${(p.productId || '').replace('0x', '')}`
+      : `${deviceId}P${idx}`;
+
+    const notes = [
+      `Connection: ${p.connectionType}`,
+      p.vendorId ? `Vendor ID: ${p.vendorId}` : null,
+      p.productId ? `Product ID: ${p.productId}` : null,
+      `Connected to: ${hardware.make} ${hardware.model} (${hardware.serial})`,
+      `Agent v${report.version}`,
+    ].filter(Boolean).join(' · ');
+
+    return {
+      id: `agent-${integrationId}-${deviceId}-peri${idx}`,
+      tag: makeTag('PERI', tagSeed),
+      name: p.name,
+      type: 'Peripheral' as AssetType,
+      make: makeStr,
+      model: p.name,
+      serial: p.serial || 'N/A',
+      status: 'Deployed',
+      location: `${report.hostname} (Agent)`,
+      purchaseDate: new Date().toISOString().split('T')[0],
+      warrantyExpiry: new Date(Date.now() + 3 * 365 * 86400000).toISOString().split('T')[0],
+      cost: 0,
+      currency: 'USD',
+      detectionSource: `Blimp Agent (${p.connectionType})`,
+      notes,
+    };
+  });
+
   return {
     deviceAsset,
     monitorAssets,
-    totalAssets: 1 + monitorAssets.length,
+    peripheralAssets,
+    totalAssets: 1 + monitorAssets.length + peripheralAssets.length,
     displayCount: displays.length,
     externalDisplayCount: externalDisplays.length,
+    peripheralCount: externalPeripherals.length,
   };
 }

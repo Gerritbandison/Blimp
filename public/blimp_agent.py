@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
 Blimp Agent - Hardware Inventory Collector
-Version 1.0.0
+Version 1.1.0
 
 Cross-platform agent that collects:
   - Hardware info: make, model, serial number, CPU, RAM, storage
   - OS info: name, version, build number, architecture
   - Display info: EDID manufacturer, model, serial, resolution, year
   - Network info: hostname, IP addresses
+  - Peripherals: keyboards, mice, docks, hubs, webcams, headsets (USB + Bluetooth)
 
 Outputs a JSON report conforming to the Blimp AgentReport schema.
 
@@ -20,16 +21,18 @@ Usage:
 
 import argparse
 import datetime
+import glob
 import hashlib
 import json
 import os
 import platform
+import re
 import socket
 import subprocess
 import sys
 from typing import Any, Dict, List, Optional
 
-AGENT_VERSION = "1.0.0"
+AGENT_VERSION = "1.1.0"
 AGENT_PORT = 51723
 SYSTEM = platform.system()  # 'Darwin', 'Windows', 'Linux'
 
@@ -129,7 +132,172 @@ def parse_edid_descriptors(edid_bytes: bytes) -> Dict[str, str]:
     return result
 
 
+# ─── Peripheral helpers ────────────────────────────────────────────────────────
+
+# Keywords used to classify device names into peripheral categories
+_PERIPHERAL_KEYWORDS: Dict[str, List[str]] = {
+    "Keyboard": ["keyboard", " kbd", "keypad"],
+    "Mouse": ["mouse", "trackball", "pointing device", "magic mouse", "magic trackpad", "trackpad"],
+    "Dock": [
+        "dock", "docking station", "caldigit", "thunderbolt dock",
+        "usb-c hub", "multiport adapter", "usb c hub", "travel hub",
+        "tb4 hub", "tb3 hub",
+    ],
+    "Hub": ["usb hub", "4-port", "7-port", "usb 3.0 hub", "usb 2.0 hub", "usb3 hub"],
+    "Webcam": ["webcam", "hd cam", "c920", "c922", "c930", "brio", "streamcam", "facetime hd camera (external"],
+    "Headset": ["headset", "headphone", "earphone", "earbuds", "airpods", "buds", "wh-", "wf-"],
+}
+
+# Names that indicate internal/system components we should skip
+_NOISE_PATTERNS = [
+    "root hub", "usb root", "host controller", "xhci", "ehci", "ohci", "uhci",
+    "bluetooth host", "bluetooth usb host", "radio", "fingerprint",
+    "touch id", "secure enclave", "ambient light", "accelerometer",
+    "smc controller", "t1 controller", "t2 controller",
+    "apple bus", "apple t2", "apple internal keyboard",
+    "broadcom", "realtek bluetooth",
+    "composite usb", "virtual", "generic usb hub",
+    "facetime hd camera (built",  # built-in FaceTime, not external
+    "apple mobile device",
+    "usb2.0 hub", "usb2 hub",   # generic internal hubs
+    "apple usb keyboard",        # covered separately via BT/USB leaf
+]
+
+
+def _classify_peripheral(name: str) -> str:
+    """Return the peripheral category for a device name."""
+    nl = name.lower()
+    for ptype, keywords in _PERIPHERAL_KEYWORDS.items():
+        if any(k in nl for k in keywords):
+            return ptype
+    return "Other"
+
+
+def _is_noise(name: str) -> bool:
+    """Return True if the device name indicates a system/internal component."""
+    if not name or len(name) < 3:
+        return True
+    nl = name.lower()
+    return any(p in nl for p in _NOISE_PATTERNS)
+
+
+def _make_peripheral(
+    ptype: str,
+    name: str,
+    manufacturer: Optional[str] = None,
+    serial: Optional[str] = None,
+    vendor_id: Optional[str] = None,
+    product_id: Optional[str] = None,
+    connection_type: str = "USB",
+    is_builtin: bool = False,
+) -> Dict[str, Any]:
+    return {
+        "type": ptype,
+        "name": name,
+        "manufacturer": manufacturer or None,
+        "serial": serial or None,
+        "vendorId": vendor_id or None,
+        "productId": product_id or None,
+        "connectionType": connection_type,
+        "isBuiltIn": is_builtin,
+    }
+
+
 # ─── macOS collection ─────────────────────────────────────────────────────────
+
+def _flatten_usb_macos(node: Dict, results: List[Dict]) -> None:
+    """Recursively flatten SPUSBDataType tree, collecting leaf devices."""
+    children = node.get("_items", [])
+    if children:
+        for child in children:
+            _flatten_usb_macos(child, results)
+    else:
+        # Leaf node — an actual device
+        if "_name" in node:
+            results.append(node)
+
+
+def collect_peripherals_macos() -> List[Dict]:
+    peripherals: List[Dict] = []
+    seen: set = set()  # deduplicate by (name, vendor_id, product_id)
+
+    def _add(p: Dict) -> None:
+        key = (p["name"].lower(), p.get("vendorId"), p.get("productId"), p["connectionType"])
+        if key not in seen:
+            seen.add(key)
+            peripherals.append(p)
+
+    # ── USB devices ──────────────────────────────────────────────────────────
+    try:
+        usb_raw = run(["system_profiler", "SPUSBDataType", "-json"])
+        usb_data = json.loads(usb_raw).get("SPUSBDataType", [])
+        all_usb: List[Dict] = []
+        for bus in usb_data:
+            _flatten_usb_macos(bus, all_usb)
+
+        for dev in all_usb:
+            name = dev.get("_name", "").strip()
+            if not name or _is_noise(name):
+                continue
+
+            manufacturer = dev.get("manufacturer", "") or None
+            serial = dev.get("serial_num", "") or None
+            vendor_id = dev.get("vendor_id", "") or None
+            product_id = dev.get("product_id", "") or None
+            is_builtin = any(k in name.lower() for k in ("built-in", "internal", "apple internal"))
+
+            ptype = _classify_peripheral(name)
+            if ptype == "Other" and not any(
+                k in name.lower() for k in ("dock", "hub", "switch", "adapter", "display")
+            ):
+                # Skip unnamed/unclassifiable USB noise
+                continue
+
+            _add(_make_peripheral(ptype, name, manufacturer, serial, vendor_id, product_id, "USB", is_builtin))
+    except Exception:
+        pass
+
+    # ── Bluetooth devices ────────────────────────────────────────────────────
+    try:
+        bt_raw = run(["system_profiler", "SPBluetoothDataType", "-json"])
+        bt_data = json.loads(bt_raw).get("SPBluetoothDataType", [])
+        for section in bt_data:
+            for list_key in ("device_connected", "device_not_connected", "device_paired"):
+                for bt_dev in section.get(list_key, []):
+                    name = bt_dev.get("device_name", "").strip()
+                    if not name or _is_noise(name):
+                        continue
+                    vendor_id = bt_dev.get("device_vendorID") or None
+                    product_id = bt_dev.get("device_productID") or None
+                    ptype = _classify_peripheral(name)
+                    _add(_make_peripheral(ptype, name, None, None, vendor_id, product_id, "Bluetooth", False))
+    except Exception:
+        pass
+
+    # ── Thunderbolt devices (docks, eGPUs, displays) ─────────────────────────
+    try:
+        tb_raw = run(["system_profiler", "SPThunderboltDataType", "-json"])
+        tb_data = json.loads(tb_raw).get("SPThunderboltDataType", [])
+        for bus in tb_data:
+            for dev in bus.get("_items", []):
+                name = (dev.get("device_name_key") or dev.get("_name") or "").strip()
+                if not name or _is_noise(name):
+                    continue
+                # Skip the host controller entry itself
+                if "host controller" in name.lower() or "thunderbolt bus" in name.lower():
+                    continue
+                vendor = dev.get("vendor_name_key") or None
+                vendor_id = dev.get("vendor_id_key") or None
+                product_id = dev.get("device_id_key") or None
+                ptype = _classify_peripheral(name)
+                if ptype == "Other":
+                    ptype = "Dock"  # Thunderbolt unknowns are almost always docks/hubs
+                _add(_make_peripheral(ptype, name, vendor, None, vendor_id, product_id, "Thunderbolt", False))
+    except Exception:
+        pass
+
+    return peripherals
+
 
 def collect_macos() -> Dict[str, Any]:
     hw_raw = run(["system_profiler", "SPHardwareDataType", "-json"])
@@ -228,7 +396,6 @@ def collect_macos() -> Dict[str, Any]:
         # Refresh rate
         refresh = None
         if resolution:
-            import re
             m = re.search(r"@\s*(\d+)\s*Hz", resolution)
             if m:
                 refresh = int(m.group(1))
@@ -263,10 +430,113 @@ def collect_macos() -> Dict[str, Any]:
             "architecture": arch,
         },
         "displays": displays,
+        "peripherals": collect_peripherals_macos(),
     }
 
 
 # ─── Windows collection ───────────────────────────────────────────────────────
+
+def collect_peripherals_windows() -> List[Dict]:
+    peripherals: List[Dict] = []
+    seen: set = set()
+
+    def _add(p: Dict) -> None:
+        key = (p["name"].lower(), p.get("vendorId"), p.get("productId"), p["connectionType"])
+        if key not in seen:
+            seen.add(key)
+            peripherals.append(p)
+
+    # ── Keyboards ────────────────────────────────────────────────────────────
+    try:
+        kb_raw = ps_json("Get-CimInstance Win32_Keyboard")
+        keyboards = kb_raw if isinstance(kb_raw, list) else ([kb_raw] if isinstance(kb_raw, dict) else [])
+        for kb in keyboards:
+            if not isinstance(kb, dict):
+                continue
+            name = (kb.get("Name") or kb.get("Description") or "").strip()
+            if not name or _is_noise(name):
+                continue
+            name_lower = name.lower()
+            is_builtin = any(k in name_lower for k in ("ps/2", "standard ps/2")) and "usb" not in name_lower
+            conn = "Bluetooth" if "bluetooth" in name_lower else ("USB" if "usb" in name_lower else ("Other" if is_builtin else "USB"))
+            _add(_make_peripheral("Keyboard", name, kb.get("Manufacturer") or None, None, None, None, conn, is_builtin))
+    except Exception:
+        pass
+
+    # ── Pointing devices (mice, touchpads) ───────────────────────────────────
+    try:
+        mice_raw = ps_json("Get-CimInstance Win32_PointingDevice")
+        mice = mice_raw if isinstance(mice_raw, list) else ([mice_raw] if isinstance(mice_raw, dict) else [])
+        for mouse in mice:
+            if not isinstance(mouse, dict):
+                continue
+            name = (mouse.get("Name") or mouse.get("Description") or "").strip()
+            if not name or _is_noise(name):
+                continue
+            name_lower = name.lower()
+            is_builtin = any(k in name_lower for k in ("touchpad", "trackpad", "synaptics", "elan", "alps", "i2c hid", "precision touchpad"))
+            conn = "Bluetooth" if "bluetooth" in name_lower else ("USB" if "usb" in name_lower else ("Other" if is_builtin else "USB"))
+            _add(_make_peripheral("Mouse", name, mouse.get("Manufacturer") or None, None, None, None, conn, is_builtin))
+    except Exception:
+        pass
+
+    # ── Docks and hubs via PnP ───────────────────────────────────────────────
+    try:
+        pnp_script = (
+            "Get-PnpDevice | "
+            "Where-Object { $_.Status -eq 'OK' -and "
+            "($_.FriendlyName -match 'dock|docking|caldigit|belkin|anker|plugable|kensington|hub') } | "
+            "Select-Object FriendlyName, Manufacturer, DeviceID | "
+            "ConvertTo-Json -Depth 3 -Compress"
+        )
+        dock_raw = run_ps(pnp_script)
+        dock_data = json.loads(dock_raw)
+        docks = dock_data if isinstance(dock_data, list) else ([dock_data] if isinstance(dock_data, dict) else [])
+        for dock in docks:
+            if not isinstance(dock, dict):
+                continue
+            name = (dock.get("FriendlyName") or "").strip()
+            if not name or _is_noise(name):
+                continue
+            ptype = _classify_peripheral(name)
+            _add(_make_peripheral(ptype, name, dock.get("Manufacturer") or None, None, None, None, "USB", False))
+    except Exception:
+        pass
+
+    # ── Webcams and audio devices via PnP ────────────────────────────────────
+    try:
+        av_script = (
+            "Get-PnpDevice | "
+            "Where-Object { $_.Status -eq 'OK' -and "
+            "($_.FriendlyName -match 'webcam|camera|headset|headphone|earphone|microphone|logitech|brio|c920|c922|jabra|plantronics|poly|sennheiser|steelseries') } | "
+            "Select-Object FriendlyName, Manufacturer, DeviceID | "
+            "ConvertTo-Json -Depth 3 -Compress"
+        )
+        av_raw = run_ps(av_script)
+        av_data = json.loads(av_raw)
+        avs = av_data if isinstance(av_data, list) else ([av_data] if isinstance(av_data, dict) else [])
+        for av in avs:
+            if not isinstance(av, dict):
+                continue
+            name = (av.get("FriendlyName") or "").strip()
+            if not name or _is_noise(name):
+                continue
+            ptype = _classify_peripheral(name)
+            if ptype == "Other":
+                # Determine from context
+                nl = name.lower()
+                if any(k in nl for k in ("webcam", "camera")):
+                    ptype = "Webcam"
+                elif any(k in nl for k in ("headset", "headphone", "earphone", "mic")):
+                    ptype = "Headset"
+                else:
+                    continue
+            _add(_make_peripheral(ptype, name, av.get("Manufacturer") or None, None, None, None, "USB", False))
+    except Exception:
+        pass
+
+    return peripherals
+
 
 def collect_windows() -> Dict[str, Any]:
     sys_info = ps_json("Get-CimInstance Win32_ComputerSystem") or {}
@@ -370,10 +640,134 @@ def collect_windows() -> Dict[str, Any]:
             "architecture": arch,
         },
         "displays": displays,
+        "peripherals": collect_peripherals_windows(),
     }
 
 
 # ─── Linux collection ─────────────────────────────────────────────────────────
+
+def collect_peripherals_linux() -> List[Dict]:
+    peripherals: List[Dict] = []
+    seen: set = set()
+
+    def _add(p: Dict) -> None:
+        key = (p["name"].lower(), p.get("vendorId"), p.get("productId"), p["connectionType"])
+        if key not in seen:
+            seen.add(key)
+            peripherals.append(p)
+
+    # ── Keyboards and mice from /proc/bus/input/devices ───────────────────────
+    try:
+        with open("/proc/bus/input/devices") as f:
+            content = f.read()
+
+        for block in content.strip().split("\n\n"):
+            fields: Dict[str, str] = {}
+            for line in block.strip().splitlines():
+                if len(line) < 3 or line[1] != ":":
+                    continue
+                fields[line[0]] = line[3:].strip()
+
+            name = fields.get("N", "").strip('"')
+            ident_str = fields.get("I", "")
+            handlers = fields.get("H", "")
+            sysfs_path = fields.get("S", "").strip()
+
+            if not name or _is_noise(name):
+                continue
+
+            bus_m = re.search(r"Bus=(\w+)", ident_str)
+            vendor_m = re.search(r"Vendor=(\w+)", ident_str)
+            product_m = re.search(r"Product=(\w+)", ident_str)
+
+            bus = bus_m.group(1) if bus_m else ""
+            vendor_id = vendor_m.group(1) if vendor_m else None
+            product_id = product_m.group(1) if product_m else None
+
+            # Bus 0003 = USB, 0005 = Bluetooth; skip PS/2 (0011) = built-in
+            if bus not in ("0003", "0005"):
+                continue
+
+            is_kbd = bool(re.search(r"\bkbd\b", handlers))
+            is_mouse = bool(re.search(r"\bmouse\b", handlers))
+            if not is_kbd and not is_mouse:
+                continue
+
+            conn = "USB" if bus == "0003" else "Bluetooth"
+            ptype = "Keyboard" if is_kbd else "Mouse"
+
+            # Try to resolve manufacturer from sysfs USB device tree
+            manufacturer = None
+            if sysfs_path:
+                path = sysfs_path
+                for _ in range(6):
+                    mfr_file = f"/sys{path}/manufacturer"
+                    try:
+                        with open(mfr_file) as mf:
+                            manufacturer = mf.read().strip()
+                        break
+                    except Exception:
+                        path = "/".join(path.rstrip("/").rsplit("/", 1)[:-1])
+                        if not path or path == "/":
+                            break
+
+            vid = f"0x{vendor_id}" if vendor_id and vendor_id != "0000" else None
+            pid = f"0x{product_id}" if product_id and product_id != "0000" else None
+            _add(_make_peripheral(ptype, name, manufacturer, None, vid, pid, conn, False))
+    except Exception:
+        pass
+
+    # ── Docks and hubs from lsusb ─────────────────────────────────────────────
+    try:
+        lsusb_out = run(["lsusb"])
+        for line in lsusb_out.splitlines():
+            # Format: "Bus 001 Device 003: ID 0bda:0411 Realtek Semiconductor Corp. 4-Port USB 3.0 Hub"
+            colon_split = line.split(":", 1)
+            if len(colon_split) < 2:
+                continue
+            desc_part = colon_split[1].strip()
+            vid_pid_m = re.search(r"ID (\w{4}):(\w{4})\s+(.*)", desc_part)
+            if not vid_pid_m:
+                continue
+            vendor_id = vid_pid_m.group(1)
+            product_id = vid_pid_m.group(2)
+            desc = vid_pid_m.group(3).strip()
+
+            if not desc or _is_noise(desc):
+                continue
+
+            ptype = _classify_peripheral(desc)
+            if ptype not in ("Dock", "Hub"):
+                continue  # keyboards/mice already handled above
+
+            _add(_make_peripheral(ptype, desc, None, None, f"0x{vendor_id}", f"0x{product_id}", "USB", False))
+    except Exception:
+        pass
+
+    # ── Bluetooth devices from /var/lib/bluetooth ─────────────────────────────
+    try:
+        for info_path in glob.glob("/var/lib/bluetooth/*/*/info"):
+            with open(info_path) as f:
+                bt_info = f.read()
+
+            name_m = re.search(r"^Name=(.+)$", bt_info, re.MULTILINE)
+            if not name_m:
+                continue
+            name = name_m.group(1).strip()
+            if not name or _is_noise(name):
+                continue
+
+            # Skip if already detected via /proc/bus/input/devices
+            if any(p["name"].lower() == name.lower() for p in peripherals):
+                continue
+
+            ptype = _classify_peripheral(name)
+            _add(_make_peripheral(ptype, name, None, None, None, None, "Bluetooth", False))
+    except Exception:
+        pass
+
+    return peripherals
+
 
 def collect_linux() -> Dict[str, Any]:
     def dmi(path: str) -> str:
@@ -441,7 +835,6 @@ def collect_linux() -> Dict[str, Any]:
 
     # Displays via /sys/class/drm EDID
     displays: List[Dict] = []
-    import glob
     for edid_path in glob.glob("/sys/class/drm/*/edid"):
         try:
             with open(edid_path, "rb") as f:
@@ -488,6 +881,7 @@ def collect_linux() -> Dict[str, Any]:
             "architecture": arch,
         },
         "displays": displays,
+        "peripherals": collect_peripherals_linux(),
     }
 
 
@@ -529,6 +923,7 @@ def collect() -> Dict[str, Any]:
             "ipAddresses": ip_addresses,
         },
         "displays": data.get("displays", []),
+        "peripherals": data.get("peripherals", []),
     }
 
 
@@ -569,7 +964,7 @@ def run_server(port: int = AGENT_PORT) -> None:
             print(f"[{ts}] {fmt % args}", file=sys.stderr)
 
     print(f"Blimp Agent v{AGENT_VERSION} — listening on http://localhost:{port}", file=sys.stderr)
-    print(f"  GET /report  → full hardware inventory", file=sys.stderr)
+    print(f"  GET /report  → full hardware + peripheral inventory", file=sys.stderr)
     print(f"  GET /health  → health check", file=sys.stderr)
     print("Press Ctrl+C to stop.\n", file=sys.stderr)
     HTTPServer(("localhost", port), Handler).serve_forever()
@@ -603,6 +998,7 @@ def main() -> None:
         print(f"Device: {data['hardware']['make']} {data['hardware']['model']} ({data['hardware']['serial']})", file=sys.stderr)
         print(f"Platform: {data['platform']} {data['os']['version']}", file=sys.stderr)
         print(f"Displays: {len(data['displays'])} detected", file=sys.stderr)
+        print(f"Peripherals: {len(data['peripherals'])} detected", file=sys.stderr)
     else:
         print(output)
 
