@@ -10,6 +10,7 @@ import { PersonDetail } from './pages/People/PersonDetail';
 import { Reports } from './pages/Reports';
 import { Integrations } from './pages/Integrations';
 import { Settings } from './pages/Settings';
+import { AuditLog } from './pages/AuditLog';
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="people/:id" element={<PersonDetail />} />
           <Route path="reports" element={<Reports />} />
           <Route path="integrations" element={<Integrations />} />
+          <Route path="audit-log" element={<AuditLog />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

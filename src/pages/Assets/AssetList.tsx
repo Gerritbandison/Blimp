@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Download, Filter, Search, Trash2, Archive,
-  Monitor, SlidersHorizontal
+  Monitor, SlidersHorizontal, Upload, Edit3
 } from 'lucide-react';
 import { DataTable, type Column } from '../../components/common/DataTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
@@ -61,7 +61,7 @@ const ASSET_TYPES: AssetType[] = ['Laptop', 'Monitor', 'Phone', 'Tablet', 'Deskt
 
 export function AssetList() {
   const navigate = useNavigate();
-  const { assets, deleteAsset, updateAsset, addToast } = useStore();
+  const { assets, people, deleteAsset, updateAsset, bulkUpdateAssets, importAssets, addToast, currentUserRole } = useStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<AssetStatus | ''>('');
   const [typeFilter, setTypeFilter] = useState<AssetType | ''>('');
@@ -74,6 +74,19 @@ export function AssetList() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
   const [newAsset, setNewAsset] = useState<Partial<Asset>>({ status: 'In Stock', type: 'Laptop', currency: 'USD', cost: 0 });
+
+  // Bulk edit state
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
+  const [bulkStatus, setBulkStatus] = useState('');
+  const [bulkLocation, setBulkLocation] = useState('');
+  const [bulkAssignee, setBulkAssignee] = useState('');
+
+  // CSV import state
+  const [showImport, setShowImport] = useState(false);
+  const [csvData, setCsvData] = useState<string[][]>([]);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [columnMap, setColumnMap] = useState<Record<string, string>>({});
+  const [importStep, setImportStep] = useState<'upload' | 'map' | 'preview'>('upload');
 
   const locations = [...new Set(assets.map((a) => a.location))];
 
@@ -140,6 +153,124 @@ export function AssetList() {
     addToast({ type: 'success', message: `Asset "${newAsset.name}" created successfully` });
   }
 
+  const isReadOnly = currentUserRole === 'Read Only';
+  const isFinance = currentUserRole === 'Finance';
+  const canEdit = !isReadOnly && !isFinance;
+
+  function handleBulkEdit() {
+    const updates: Partial<Asset> = {};
+    if (bulkStatus) updates.status = bulkStatus as AssetStatus;
+    if (bulkLocation) updates.location = bulkLocation;
+    if (bulkAssignee) {
+      const person = people.find(p => p.id === bulkAssignee);
+      if (person) {
+        updates.assignedTo = person.name;
+        updates.assignedToId = person.id;
+      }
+    }
+    if (Object.keys(updates).length === 0) return;
+    bulkUpdateAssets(selectedIds, updates);
+    addToast({ type: 'success', message: `Updated ${selectedIds.length} asset(s)` });
+    setSelectedIds([]);
+    setShowBulkEdit(false);
+    setBulkStatus('');
+    setBulkLocation('');
+    setBulkAssignee('');
+  }
+
+  function handleCsvUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const lines = text.split('\n').filter(l => l.trim());
+      if (lines.length < 2) {
+        addToast({ type: 'error', message: 'CSV must have a header row and at least one data row' });
+        return;
+      }
+      const parseRow = (row: string) => {
+        const result: string[] = [];
+        let cur = '';
+        let inQuote = false;
+        for (const ch of row) {
+          if (ch === '"') { inQuote = !inQuote; }
+          else if (ch === ',' && !inQuote) { result.push(cur.trim()); cur = ''; }
+          else { cur += ch; }
+        }
+        result.push(cur.trim());
+        return result;
+      };
+      const headers = parseRow(lines[0]);
+      const rows = lines.slice(1).map(parseRow);
+      setCsvHeaders(headers);
+      setCsvData(rows);
+      // Auto-map columns by name matching
+      const fieldMap: Record<string, string> = {
+        'asset tag': 'tag', 'tag': 'tag', 'name': 'name', 'asset name': 'name',
+        'type': 'type', 'make': 'make', 'manufacturer': 'make', 'brand': 'make',
+        'model': 'model', 'serial': 'serial', 'serial number': 'serial', 'serial #': 'serial',
+        'status': 'status', 'assigned to': 'assignedTo', 'assignee': 'assignedTo',
+        'location': 'location', 'purchase date': 'purchaseDate', 'purchased': 'purchaseDate',
+        'warranty expiry': 'warrantyExpiry', 'warranty': 'warrantyExpiry',
+        'cost': 'cost', 'price': 'cost', 'vendor': 'vendor', 'supplier': 'vendor',
+      };
+      const autoMap: Record<string, string> = {};
+      headers.forEach((h, i) => {
+        const match = fieldMap[h.toLowerCase()];
+        if (match) autoMap[String(i)] = match;
+      });
+      setColumnMap(autoMap);
+      setImportStep('map');
+    };
+    reader.readAsText(file);
+  }
+
+  function handleImportConfirm() {
+    const imported: Asset[] = csvData.map((row, idx) => {
+      const getValue = (field: string) => {
+        const colIdx = Object.entries(columnMap).find(([, v]) => v === field)?.[0];
+        return colIdx !== undefined ? row[Number(colIdx)] || '' : '';
+      };
+      return {
+        id: `imp${Date.now()}-${idx}`,
+        tag: getValue('tag') || `IMP-${String(idx + 1).padStart(4, '0')}`,
+        name: getValue('name') || 'Unnamed Asset',
+        type: (getValue('type') as AssetType) || 'Other',
+        make: getValue('make'),
+        model: getValue('model'),
+        serial: getValue('serial'),
+        status: (getValue('status') as AssetStatus) || 'In Stock',
+        assignedTo: getValue('assignedTo') || undefined,
+        location: getValue('location') || '',
+        purchaseDate: getValue('purchaseDate') || new Date().toISOString().split('T')[0],
+        warrantyExpiry: getValue('warrantyExpiry') || '',
+        cost: parseFloat(getValue('cost')) || 0,
+        currency: 'USD',
+        vendor: getValue('vendor') || undefined,
+        detectionSource: 'Manual',
+      };
+    });
+    importAssets(imported);
+    addToast({ type: 'success', message: `Imported ${imported.length} assets from CSV` });
+    setShowImport(false);
+    setCsvData([]);
+    setCsvHeaders([]);
+    setColumnMap({});
+    setImportStep('upload');
+  }
+
+  const IMPORT_FIELDS = [
+    { value: '', label: '— Skip —' },
+    { value: 'tag', label: 'Asset Tag' }, { value: 'name', label: 'Name' },
+    { value: 'type', label: 'Type' }, { value: 'make', label: 'Make' },
+    { value: 'model', label: 'Model' }, { value: 'serial', label: 'Serial #' },
+    { value: 'status', label: 'Status' }, { value: 'assignedTo', label: 'Assigned To' },
+    { value: 'location', label: 'Location' }, { value: 'purchaseDate', label: 'Purchase Date' },
+    { value: 'warrantyExpiry', label: 'Warranty Expiry' },
+    { value: 'cost', label: 'Cost' }, { value: 'vendor', label: 'Vendor' },
+  ];
+
   return (
     <div className="p-6 space-y-5">
       {/* Header */}
@@ -149,6 +280,11 @@ export function AssetList() {
           <p className="text-sm text-gray-500 mt-0.5">{assets.length} total assets · {assets.filter(a => a.status === 'Deployed').length} deployed</p>
         </div>
         <div className="flex items-center gap-2">
+          {canEdit && (
+            <button className="btn-secondary" onClick={() => setShowImport(true)}>
+              <Upload size={15} /> Import
+            </button>
+          )}
           <button className="btn-secondary" onClick={() => {
             exportToCSV(
               filtered as unknown as Record<string, unknown>[],
@@ -167,9 +303,11 @@ export function AssetList() {
           }}>
             <Download size={15} /> Export
           </button>
-          <button onClick={() => setShowAddModal(true)} className="btn-primary">
-            <Plus size={15} /> Add Asset
-          </button>
+          {canEdit && (
+            <button onClick={() => setShowAddModal(true)} className="btn-primary">
+              <Plus size={15} /> Add Asset
+            </button>
+          )}
         </div>
       </div>
 
@@ -219,12 +357,21 @@ export function AssetList() {
           {selectedIds.length > 0 && (
             <div className="flex items-center gap-2 ml-auto">
               <span className="text-sm text-gray-500">{selectedIds.length} selected</span>
-              <button className="btn-secondary" onClick={handleBulkRetire}>
-                <Archive size={14} /> Retire
-              </button>
-              <button className="btn-secondary text-red-600 hover:bg-red-50 hover:border-red-200" onClick={() => setShowDeleteConfirm(true)}>
-                <Trash2 size={14} /> Delete
-              </button>
+              {canEdit && (
+                <button className="btn-secondary" onClick={() => setShowBulkEdit(true)}>
+                  <Edit3 size={14} /> Bulk Edit
+                </button>
+              )}
+              {canEdit && (
+                <button className="btn-secondary" onClick={handleBulkRetire}>
+                  <Archive size={14} /> Retire
+                </button>
+              )}
+              {canEdit && (
+                <button className="btn-secondary text-red-600 hover:bg-red-50 hover:border-red-200" onClick={() => setShowDeleteConfirm(true)}>
+                  <Trash2 size={14} /> Delete
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -381,6 +528,155 @@ export function AssetList() {
         message={`Are you sure you want to delete ${selectedIds.length} asset${selectedIds.length !== 1 ? 's' : ''}? This action cannot be undone.`}
         confirmLabel={`Delete ${selectedIds.length} asset${selectedIds.length !== 1 ? 's' : ''}`}
       />
+
+      {/* Bulk Edit Modal */}
+      <Modal
+        open={showBulkEdit}
+        onClose={() => setShowBulkEdit(false)}
+        title={`Bulk Edit — ${selectedIds.length} asset(s)`}
+        size="md"
+        footer={
+          <>
+            <button className="btn-secondary" onClick={() => setShowBulkEdit(false)}>Cancel</button>
+            <button className="btn-primary" onClick={handleBulkEdit}>Apply Changes</button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-500 mb-4">Only fields you change will be updated. Leave blank to keep current values.</p>
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-1 block">Status</label>
+            <select className="select" value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)}>
+              <option value="">— No change —</option>
+              {ASSET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-1 block">Location</label>
+            <select className="select" value={bulkLocation} onChange={(e) => setBulkLocation(e.target.value)}>
+              <option value="">— No change —</option>
+              {locations.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-1 block">Assign To</label>
+            <select className="select" value={bulkAssignee} onChange={(e) => setBulkAssignee(e.target.value)}>
+              <option value="">— No change —</option>
+              {people.filter(p => p.status === 'Active').map(p => (
+                <option key={p.id} value={p.id}>{p.name} ({p.department})</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </Modal>
+
+      {/* CSV Import Wizard */}
+      <Modal
+        open={showImport}
+        onClose={() => { setShowImport(false); setImportStep('upload'); setCsvData([]); setCsvHeaders([]); setColumnMap({}); }}
+        title={`Import Assets — ${importStep === 'upload' ? 'Upload CSV' : importStep === 'map' ? 'Map Columns' : 'Preview'}`}
+        size="lg"
+        footer={
+          <>
+            <button className="btn-secondary" onClick={() => {
+              if (importStep === 'map') { setImportStep('upload'); setCsvData([]); setCsvHeaders([]); setColumnMap({}); }
+              else if (importStep === 'preview') setImportStep('map');
+              else { setShowImport(false); }
+            }}>
+              {importStep === 'upload' ? 'Cancel' : 'Back'}
+            </button>
+            {importStep === 'map' && (
+              <button className="btn-primary" onClick={() => setImportStep('preview')}>
+                Preview ({csvData.length} rows)
+              </button>
+            )}
+            {importStep === 'preview' && (
+              <button className="btn-primary" onClick={handleImportConfirm}>
+                Import {csvData.length} Assets
+              </button>
+            )}
+          </>
+        }
+      >
+        {importStep === 'upload' && (
+          <div className="border-2 border-dashed border-gray-200 rounded-xl p-12 text-center">
+            <Upload size={32} className="text-gray-300 mx-auto mb-3" />
+            <p className="text-sm text-gray-600 mb-1">Drag & drop a CSV file or click to browse</p>
+            <p className="text-xs text-gray-400 mb-4">Supports .csv files with a header row</p>
+            <label className="btn-primary cursor-pointer inline-flex items-center gap-2">
+              <Upload size={14} /> Choose File
+              <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
+            </label>
+          </div>
+        )}
+
+        {importStep === 'map' && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-500">Map each CSV column to an asset field. Unmapped columns will be skipped.</p>
+            <div className="max-h-80 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-gray-50">
+                  <tr>
+                    <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">CSV Column</th>
+                    <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">Sample Data</th>
+                    <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">Maps To</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {csvHeaders.map((h, i) => (
+                    <tr key={i}>
+                      <td className="py-2 px-3 font-medium text-gray-900">{h}</td>
+                      <td className="py-2 px-3 text-gray-500 truncate max-w-[200px]">{csvData[0]?.[i] || '—'}</td>
+                      <td className="py-2 px-3">
+                        <select
+                          className="text-sm border border-gray-200 rounded-lg px-2 py-1 w-full"
+                          value={columnMap[String(i)] || ''}
+                          onChange={(e) => setColumnMap(m => ({ ...m, [String(i)]: e.target.value }))}
+                        >
+                          {IMPORT_FIELDS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {importStep === 'preview' && (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500">Review the first 5 rows before importing.</p>
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {Object.entries(columnMap).filter(([, v]) => v).map(([colIdx, field]) => (
+                      <th key={colIdx} className="text-left py-2 px-3 text-xs font-medium text-gray-500 whitespace-nowrap">
+                        {IMPORT_FIELDS.find(f => f.value === field)?.label || field}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {csvData.slice(0, 5).map((row, ri) => (
+                    <tr key={ri}>
+                      {Object.entries(columnMap).filter(([, v]) => v).map(([colIdx]) => (
+                        <td key={colIdx} className="py-2 px-3 text-gray-700 truncate max-w-[200px]">
+                          {row[Number(colIdx)] || '—'}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {csvData.length > 5 && (
+              <p className="text-xs text-gray-400 text-center">... and {csvData.length - 5} more rows</p>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

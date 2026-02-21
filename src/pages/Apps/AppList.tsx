@@ -90,7 +90,8 @@ const APP_CATEGORIES: AppCategory[] = ['Productivity', 'Development', 'Design', 
 
 export function AppList() {
   const navigate = useNavigate();
-  const { apps, addApp, addToast } = useStore();
+  const { apps, addApp, addToast, currentUserRole } = useStore();
+  const canEdit = currentUserRole !== 'Read Only' && currentUserRole !== 'Finance';
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<AppStatus | ''>('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -193,9 +194,11 @@ export function AppList() {
           }}>
             <Download size={15} /> Export
           </button>
-          <button onClick={() => setShowAddModal(true)} className="btn-primary">
-            <Plus size={15} /> Add App
-          </button>
+          {canEdit && (
+            <button onClick={() => setShowAddModal(true)} className="btn-primary">
+              <Plus size={15} /> Add App
+            </button>
+          )}
         </div>
       </div>
 

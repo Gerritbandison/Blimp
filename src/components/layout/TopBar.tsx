@@ -12,6 +12,7 @@ const breadcrumbMap: Record<string, string> = {
   people: 'People',
   reports: 'Reports',
   integrations: 'Integrations',
+  'audit-log': 'Audit Log',
   settings: 'Settings',
 };
 
@@ -24,7 +25,7 @@ const quickAddOptions = [
 export function TopBar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { notifications, markAllNotificationsRead, globalSearch, setGlobalSearch, assets, apps, people, theme, setTheme } = useStore();
+  const { notifications, markAllNotificationsRead, globalSearch, setGlobalSearch, assets, apps, people, theme, setTheme, currentUserRole } = useStore();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -317,7 +318,20 @@ export function TopBar() {
         )}
       </div>
 
+      {/* Role Badge */}
+      {currentUserRole !== 'Admin' && (
+        <span className={clsx(
+          'text-xs font-medium px-2.5 py-1 rounded-full',
+          currentUserRole === 'Read Only' ? 'bg-gray-100 text-gray-600' :
+          currentUserRole === 'Finance' ? 'bg-yellow-100 text-yellow-700' :
+          'bg-blue-100 text-blue-700',
+        )}>
+          {currentUserRole}
+        </span>
+      )}
+
       {/* Quick Add */}
+      {currentUserRole !== 'Read Only' && currentUserRole !== 'Finance' && (
       <div className="relative">
         <button
           onClick={() => { setShowQuickAdd(!showQuickAdd); setShowNotifications(false); setShowThemeMenu(false); }}
@@ -340,6 +354,7 @@ export function TopBar() {
           </div>
         )}
       </div>
+      )}
 
       {/* Click outside to close dropdowns */}
       {(showNotifications || showQuickAdd || showThemeMenu) && (

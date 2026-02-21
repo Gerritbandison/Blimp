@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import {
   Building2, Users, SlidersHorizontal, Bell, Tag, Key, CreditCard,
-  Plus, Trash2, Copy, RefreshCw, Palette, Sun, Moon, Laptop
+  Plus, Trash2, Copy, RefreshCw, Palette, Sun, Moon, Laptop, Edit3
 } from 'lucide-react';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { Modal } from '../components/common/Modal';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { useStore } from '../store/useStore';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
-import type { UserRole } from '../types';
+import type { UserRole, CustomField } from '../types';
 
 const SETTINGS_NAV = [
   { id: 'company', label: 'Company', icon: Building2 },
@@ -36,11 +37,23 @@ export function Settings() {
     addToast, companySettings, updateCompanySettings,
     notificationSettings, updateNotificationSettings,
     orgUsers, updateOrgUser, theme, setTheme,
+    customFields, addCustomField, updateCustomField, deleteCustomField,
+    currentUserRole, setCurrentUserRole,
   } = useStore();
   const [activeSection, setActiveSection] = useState('company');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<UserRole>('Read Only');
+
+  // Custom field modal state
+  const [showFieldModal, setShowFieldModal] = useState(false);
+  const [editingField, setEditingField] = useState<CustomField | null>(null);
+  const [fieldName, setFieldName] = useState('');
+  const [fieldType, setFieldType] = useState<CustomField['type']>('text');
+  const [fieldModule, setFieldModule] = useState<CustomField['module']>('asset');
+  const [fieldRequired, setFieldRequired] = useState(false);
+  const [fieldOptions, setFieldOptions] = useState('');
+  const [deleteFieldId, setDeleteFieldId] = useState<string | null>(null);
 
   function handleInvite() {
     if (!inviteEmail) return;
@@ -55,6 +68,38 @@ export function Settings() {
 
   function handleSaveNotifications() {
     addToast({ type: 'success', message: 'Notification preferences saved' });
+  }
+
+  function openFieldModal(field?: CustomField) {
+    if (field) {
+      setEditingField(field);
+      setFieldName(field.name);
+      setFieldType(field.type);
+      setFieldModule(field.module);
+      setFieldRequired(field.required);
+      setFieldOptions(field.options?.join(', ') || '');
+    } else {
+      setEditingField(null);
+      setFieldName('');
+      setFieldType('text');
+      setFieldModule('asset');
+      setFieldRequired(false);
+      setFieldOptions('');
+    }
+    setShowFieldModal(true);
+  }
+
+  function handleSaveField() {
+    if (!fieldName.trim()) return;
+    const opts = fieldType === 'select' ? fieldOptions.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+    if (editingField) {
+      updateCustomField(editingField.id, { name: fieldName, type: fieldType, module: fieldModule, required: fieldRequired, options: opts });
+      addToast({ type: 'success', message: `Field "${fieldName}" updated` });
+    } else {
+      addCustomField({ id: `cf${Date.now()}`, name: fieldName, type: fieldType, module: fieldModule, required: fieldRequired, options: opts });
+      addToast({ type: 'success', message: `Field "${fieldName}" created` });
+    }
+    setShowFieldModal(false);
   }
 
   const apiKey = 'blimp_sk_live_xK9mN2pQ7rT4vW8yZ3cA6bE1dF5hJ0';
@@ -108,6 +153,27 @@ export function Settings() {
               <div><h2 className="text-lg font-bold text-gray-900">User Management</h2><p className="text-sm text-gray-500">{orgUsers.length} members · manage access and roles</p></div>
               <button className="btn-primary" onClick={() => setShowInviteModal(true)}><Plus size={15} /> Invite User</button>
             </div>
+
+            {/* Current user role switcher (demo) */}
+            <div className="card p-4 border-l-4 border-blue-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Your Current Role</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Switch roles to preview permission enforcement across the app</p>
+                </div>
+                <select
+                  className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={currentUserRole}
+                  onChange={(e) => {
+                    setCurrentUserRole(e.target.value as UserRole);
+                    addToast({ type: 'info', message: `Switched to ${e.target.value} role` });
+                  }}
+                >
+                  {ROLES.map(r => <option key={r}>{r}</option>)}
+                </select>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">{ROLE_DESCRIPTIONS[currentUserRole]}</p>
+            </div>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
               {ROLES.map((role) => (
                 <div key={role} className="card p-4">
@@ -152,24 +218,42 @@ export function Settings() {
           <div className="max-w-2xl space-y-6">
             <div className="flex items-center justify-between">
               <div><h2 className="text-lg font-bold text-gray-900">Custom Fields</h2><p className="text-sm text-gray-500">Add custom data fields to assets, apps, and people</p></div>
-              <button className="btn-primary" onClick={() => addToast({ type: 'info', message: 'Custom field creation coming soon' })}><Plus size={15} /> Add Field</button>
+              <button className="btn-primary" onClick={() => openFieldModal()}><Plus size={15} /> Add Field</button>
             </div>
-            {['Assets', 'Apps', 'People'].map((module) => (
-              <div key={module} className="card p-5">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">{module} Fields</h3>
+            {([
+              { key: 'asset', label: 'Assets', builtIn: [{ name: 'Department', type: 'select', required: true }, { name: 'Category', type: 'select', required: false }, { name: 'Purchase Order', type: 'text', required: false }] },
+              { key: 'app', label: 'Apps', builtIn: [{ name: 'Vendor Contact', type: 'text', required: false }] },
+              { key: 'person', label: 'People', builtIn: [{ name: 'Phone', type: 'text', required: false }] },
+            ] as const).map(({ key, label, builtIn }) => (
+              <div key={key} className="card p-5">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">{label} Fields</h3>
                 <div className="space-y-2">
-                  {module === 'Assets' && [
-                    { name: 'Department', type: 'select', required: true },
-                    { name: 'Category', type: 'select', required: false },
-                    { name: 'Purchase Order', type: 'text', required: false },
-                  ].map((field) => (
+                  {builtIn.map((field) => (
                     <div key={field.name} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg">
                       <div><p className="text-sm font-medium text-gray-900">{field.name}</p><p className="text-xs text-gray-500 capitalize">{field.type} · {field.required ? 'Required' : 'Optional'}</p></div>
                       <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">Built-in</span>
                     </div>
                   ))}
-                  <div className="flex items-center gap-2 p-3 border border-dashed border-gray-200 rounded-lg text-gray-400 cursor-pointer hover:border-blue-300 hover:text-blue-500 transition-colors" onClick={() => addToast({ type: 'info', message: 'Custom field creation coming soon' })}>
-                    <Plus size={14} /><span className="text-sm">Add custom field</span>
+                  {customFields.filter(f => f.module === key).map((field) => (
+                    <div key={field.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg group">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{field.name}</p>
+                        <p className="text-xs text-gray-500 capitalize">
+                          {field.type}{field.type === 'select' && field.options ? ` (${field.options.join(', ')})` : ''} · {field.required ? 'Required' : 'Optional'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">Custom</span>
+                        <button className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-blue-600" onClick={() => openFieldModal(field)}><Edit3 size={14} /></button>
+                        <button className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500" onClick={() => setDeleteFieldId(field.id)}><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                  ))}
+                  <div
+                    className="flex items-center gap-2 p-3 border border-dashed border-gray-200 rounded-lg text-gray-400 cursor-pointer hover:border-blue-300 hover:text-blue-500 transition-colors"
+                    onClick={() => { setFieldModule(key); openFieldModal(); }}
+                  >
+                    <Plus size={14} /><span className="text-sm">Add custom field to {label}</span>
                   </div>
                 </div>
               </div>
@@ -377,6 +461,71 @@ export function Settings() {
           <div><label className="text-xs font-medium text-gray-700 mb-1 block">Role</label><select className="select" value={inviteRole} onChange={(e) => setInviteRole(e.target.value as UserRole)}>{ROLES.map(r => <option key={r}>{r}</option>)}</select><p className="text-xs text-gray-400 mt-1">{ROLE_DESCRIPTIONS[inviteRole]}</p></div>
         </div>
       </Modal>
+
+      {/* Custom Field Modal */}
+      <Modal
+        open={showFieldModal}
+        onClose={() => setShowFieldModal(false)}
+        title={editingField ? 'Edit Custom Field' : 'Add Custom Field'}
+        size="sm"
+        footer={
+          <>
+            <button className="btn-secondary" onClick={() => setShowFieldModal(false)}>Cancel</button>
+            <button className="btn-primary" onClick={handleSaveField}>{editingField ? 'Save Changes' : 'Create Field'}</button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-1 block">Field Name</label>
+            <input className="input" placeholder="e.g. Asset Color" value={fieldName} onChange={(e) => setFieldName(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-1 block">Type</label>
+            <select className="select" value={fieldType} onChange={(e) => setFieldType(e.target.value as CustomField['type'])}>
+              <option value="text">Text</option>
+              <option value="number">Number</option>
+              <option value="date">Date</option>
+              <option value="select">Select (dropdown)</option>
+              <option value="boolean">Yes / No</option>
+            </select>
+          </div>
+          {fieldType === 'select' && (
+            <div>
+              <label className="text-xs font-medium text-gray-700 mb-1 block">Options (comma-separated)</label>
+              <input className="input" placeholder="Option 1, Option 2, Option 3" value={fieldOptions} onChange={(e) => setFieldOptions(e.target.value)} />
+            </div>
+          )}
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-1 block">Module</label>
+            <select className="select" value={fieldModule} onChange={(e) => setFieldModule(e.target.value as CustomField['module'])}>
+              <option value="asset">Assets</option>
+              <option value="app">Apps</option>
+              <option value="person">People</option>
+            </select>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={fieldRequired} onChange={(e) => setFieldRequired(e.target.checked)} className="w-4 h-4 rounded border-gray-300" />
+            <span className="text-sm text-gray-700">Required field</span>
+          </label>
+        </div>
+      </Modal>
+
+      {/* Delete Custom Field Confirm */}
+      <ConfirmDialog
+        open={!!deleteFieldId}
+        onClose={() => setDeleteFieldId(null)}
+        onConfirm={() => {
+          if (deleteFieldId) {
+            deleteCustomField(deleteFieldId);
+            addToast({ type: 'success', message: 'Custom field deleted' });
+            setDeleteFieldId(null);
+          }
+        }}
+        title="Delete Custom Field"
+        message="Are you sure you want to delete this custom field? Any data stored in this field will be lost."
+        confirmLabel="Delete Field"
+      />
     </div>
   );
 }

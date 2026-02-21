@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Monitor, AppWindow, Users, BarChart3,
   Plug, Settings, ChevronLeft, ChevronRight, LogOut,
-  Server
+  Server, Shield
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { clsx } from 'clsx';
@@ -14,12 +14,26 @@ const navItems = [
   { to: '/people', icon: Users, label: 'People' },
   { to: '/reports', icon: BarChart3, label: 'Reports' },
   { to: '/integrations', icon: Plug, label: 'Integrations' },
+  { to: '/audit-log', icon: Shield, label: 'Audit Log' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export function Sidebar() {
-  const { sidebarCollapsed, setSidebarCollapsed } = useStore();
+  const { sidebarCollapsed, setSidebarCollapsed, currentUserRole } = useStore();
   const location = useLocation();
+
+  // RBAC: filter nav items based on role
+  const filteredNavItems = navItems.filter(({ to }) => {
+    if (currentUserRole === 'Read Only') {
+      // Read Only: no settings, no integrations
+      return !['/settings', '/integrations'].includes(to);
+    }
+    if (currentUserRole === 'Finance') {
+      // Finance: no integrations, no settings (user mgmt)
+      return !['/integrations'].includes(to);
+    }
+    return true;
+  });
 
   return (
     <aside
@@ -46,7 +60,7 @@ export function Sidebar() {
               Main Menu
             </p>
           )}
-          {navItems.map(({ to, icon: Icon, label }) => {
+          {filteredNavItems.map(({ to, icon: Icon, label }) => {
             const isActive = to === '/'
               ? location.pathname === '/'
               : location.pathname.startsWith(to);
@@ -93,7 +107,7 @@ export function Sidebar() {
           {!sidebarCollapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">Tom Admin</p>
-              <p className="text-xs text-[#8892a4] truncate">tom@company.com</p>
+              <p className="text-xs text-[#8892a4] truncate">{currentUserRole}</p>
             </div>
           )}
           {!sidebarCollapsed && (

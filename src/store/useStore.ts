@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import type {
   Asset, App, Person, Integration, Notification,
   OrgUser, AssetGroup, CompanySettings, NotificationSettings,
-  ActivityEntry,
+  ActivityEntry, CustomField, UserRole,
 } from '../types';
 import {
   mockAssets, mockApps, mockPeople, mockIntegrations,
@@ -26,6 +26,8 @@ interface AppState {
   orgUsers: OrgUser[];
   assetGroups: AssetGroup[];
   activityLog: ActivityEntry[];
+  customFields: CustomField[];
+  currentUserRole: UserRole;
 
   // Settings (persisted)
   companySettings: CompanySettings;
@@ -42,10 +44,15 @@ interface AppState {
   setGlobalSearch: (search: string) => void;
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
 
+  // RBAC
+  setCurrentUserRole: (role: UserRole) => void;
+
   // Asset actions
   addAsset: (asset: Asset) => void;
   updateAsset: (id: string, updates: Partial<Asset>) => void;
   deleteAsset: (id: string) => void;
+  bulkUpdateAssets: (ids: string[], updates: Partial<Asset>) => void;
+  importAssets: (assets: Asset[]) => void;
 
   // App actions
   addApp: (app: App) => void;
@@ -70,6 +77,11 @@ interface AppState {
   addAssetGroup: (group: AssetGroup) => void;
   updateAssetGroup: (id: string, updates: Partial<AssetGroup>) => void;
   deleteAssetGroup: (id: string) => void;
+
+  // Custom Field actions
+  addCustomField: (field: CustomField) => void;
+  updateCustomField: (id: string, updates: Partial<CustomField>) => void;
+  deleteCustomField: (id: string) => void;
 
   // Settings actions
   updateCompanySettings: (updates: Partial<CompanySettings>) => void;
@@ -114,6 +126,8 @@ export const useStore = create<AppState>()(
       orgUsers: mockOrgUsers,
       assetGroups: [],
       activityLog: mockActivityLog,
+      customFields: [],
+      currentUserRole: 'Admin',
 
       companySettings: defaultCompanySettings,
       notificationSettings: defaultNotificationSettings,
@@ -126,6 +140,7 @@ export const useStore = create<AppState>()(
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
       setGlobalSearch: (search) => set({ globalSearch: search }),
       setTheme: (theme) => set({ theme }),
+      setCurrentUserRole: (role) => set({ currentUserRole: role }),
 
       // ── Asset actions ──
       addAsset: (asset) => {
@@ -172,6 +187,28 @@ export const useStore = create<AppState>()(
             entityName: asset.name,
           });
         }
+      },
+
+      bulkUpdateAssets: (ids, updates) => {
+        set((state) => ({
+          assets: state.assets.map((a) => (ids.includes(a.id) ? { ...a, ...updates } : a)),
+        }));
+        get().addActivity({
+          action: 'Bulk Asset Update',
+          user: 'Current User',
+          details: `Updated ${ids.length} asset(s): ${Object.keys(updates).join(', ')}`,
+          module: 'Assets',
+        });
+      },
+
+      importAssets: (newAssets) => {
+        set((state) => ({ assets: [...newAssets, ...state.assets] }));
+        get().addActivity({
+          action: 'Assets Imported',
+          user: 'Current User',
+          details: `Imported ${newAssets.length} asset(s) via CSV`,
+          module: 'Assets',
+        });
       },
 
       // ── App actions ──
@@ -286,6 +323,22 @@ export const useStore = create<AppState>()(
           assetGroups: state.assetGroups.filter((g) => g.id !== id),
         })),
 
+      // ── Custom Field actions ──
+      addCustomField: (field) =>
+        set((state) => ({ customFields: [...state.customFields, field] })),
+
+      updateCustomField: (id, updates) =>
+        set((state) => ({
+          customFields: state.customFields.map((f) =>
+            f.id === id ? { ...f, ...updates } : f
+          ),
+        })),
+
+      deleteCustomField: (id) =>
+        set((state) => ({
+          customFields: state.customFields.filter((f) => f.id !== id),
+        })),
+
       // ── Settings actions ──
       updateCompanySettings: (updates) =>
         set((state) => ({
@@ -307,7 +360,7 @@ export const useStore = create<AppState>()(
               timestamp: new Date().toISOString(),
             },
             ...state.activityLog,
-          ].slice(0, 100), // Keep last 100 entries
+          ].slice(0, 500), // Keep last 500 entries
         })),
 
       // ── Toast actions ──
@@ -332,6 +385,8 @@ export const useStore = create<AppState>()(
         orgUsers: state.orgUsers,
         assetGroups: state.assetGroups,
         activityLog: state.activityLog,
+        customFields: state.customFields,
+        currentUserRole: state.currentUserRole,
         companySettings: state.companySettings,
         notificationSettings: state.notificationSettings,
         sidebarCollapsed: state.sidebarCollapsed,

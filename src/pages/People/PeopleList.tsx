@@ -50,7 +50,8 @@ const STATUSES: PersonStatus[] = ['Active', 'Onboarding', 'Offboarding', 'Offboa
 
 export function PeopleList() {
   const navigate = useNavigate();
-  const { people, addPerson, addToast } = useStore();
+  const { people, addPerson, addToast, currentUserRole } = useStore();
+  const canEdit = currentUserRole !== 'Read Only' && currentUserRole !== 'Finance';
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PersonStatus | ''>('');
   const [deptFilter, setDeptFilter] = useState('');
@@ -134,9 +135,11 @@ export function PeopleList() {
           }}>
             <Download size={15} /> Export
           </button>
-          <button onClick={() => setShowAddModal(true)} className="btn-primary">
-            <Plus size={15} /> Add Person
-          </button>
+          {canEdit && (
+            <button onClick={() => setShowAddModal(true)} className="btn-primary">
+              <Plus size={15} /> Add Person
+            </button>
+          )}
         </div>
       </div>
 
