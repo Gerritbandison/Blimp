@@ -217,6 +217,71 @@ export interface Notification {
   link?: string;
 }
 
+// ─── Blimp Agent Types ────────────────────────────────────────────────────────
+export interface AgentDisplay {
+  name: string;
+  manufacturer?: string;
+  manufacturerId?: string;  // 3-letter EDID vendor code (e.g. "DEL", "GSM", "SAM")
+  productId?: string;
+  serial?: string;
+  year?: number;
+  week?: number;
+  resolution?: string;
+  refreshRate?: number;
+  sizeInches?: number;
+  isBuiltIn: boolean;
+  edidVersion?: string;
+}
+
+export interface AgentReport {
+  version: string;
+  generatedAt: string;
+  deviceId: string;
+  platform: 'macOS' | 'Windows' | 'Linux';
+  hostname: string;
+  hardware: {
+    make: string;
+    model: string;
+    serial: string;
+    cpu: string;
+    ramGB: number;
+    storage: { label: string; totalGB: number | string; freeGB: number | string | null }[];
+  };
+  os: {
+    name: string;
+    version: string;
+    buildNumber?: string;
+    architecture: string;
+  };
+  network: {
+    hostname: string;
+    ipAddresses: string[];
+  };
+  displays: AgentDisplay[];
+}
+
+export interface IntegrationConfig {
+  // Intune / Azure AD
+  tenantId?: string;
+  clientId?: string;
+  clientSecret?: string;
+  // NinjaOne
+  instanceUrl?: string;
+  // Common
+  syncFrequency?: string;
+  enabledFeatures?: string[];
+}
+
+export interface SyncResult {
+  at: string;
+  assetsAdded: number;
+  assetsUpdated: number;
+  peopleAdded: number;
+  appsAdded: number;
+  skipped: number;
+  errors: string[];
+}
+
 export interface Integration {
   id: string;
   name: string;
@@ -230,6 +295,8 @@ export interface Integration {
   features: string[];
   syncCount?: number;
   errorMessage?: string;
+  config?: IntegrationConfig;
+  lastSyncResult?: SyncResult;
 }
 
 // ─── Report Types ──────────────────────────────────────────────────────────

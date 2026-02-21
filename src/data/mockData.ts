@@ -358,6 +358,12 @@ export const mockIntegrations: Integration[] = [
     status: 'Disconnected',
     features: ['Invoice import', 'Expense tracking', 'Vendor sync', 'Budget reporting'],
   },
+  {
+    id: 'int-agent', name: 'Blimp Agent', category: 'MDM/RMM',
+    description: 'Lightweight agent for macOS, Windows & Linux — collects hardware specs, serial numbers, EDID display data, and warranty information directly from managed machines.',
+    status: 'Disconnected',
+    features: ['Hardware auto-discovery', 'Serial number & model', 'EDID monitor info', 'CPU / RAM / Storage', 'OS version & build', 'Local HTTP API'],
+  },
 ];
 
 // ─── Mock Activity Log ────────────────────────────────────────────────────
