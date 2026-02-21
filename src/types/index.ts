@@ -284,3 +284,35 @@ export interface CustomField {
   options?: string[];
   required: boolean;
 }
+
+// ─── Asset Group Types ────────────────────────────────────────────────────
+export interface AssetGroup {
+  id: string;
+  name: string;
+  type: AssetType;
+  model: string;
+  targetStock: number;
+  location?: string;
+  department?: string;
+}
+
+// ─── Settings Types (persisted) ───────────────────────────────────────────
+export interface CompanySettings {
+  name: string;
+  domain: string;
+  currency: string;
+  fiscalYearStart: string;
+  timezone: string;
+  plan: string;
+}
+
+export interface NotificationSettings {
+  renewalReminder: boolean;
+  renewalDays: number;
+  warrantyExpiry: boolean;
+  warrantyDays: number;
+  lowStock: boolean;
+  onboarding: boolean;
+  offboarding: boolean;
+  shadowIt: boolean;
+}

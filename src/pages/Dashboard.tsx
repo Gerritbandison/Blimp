@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Monitor, AppWindow, Users, DollarSign, AlertTriangle,
@@ -11,15 +12,22 @@ import {
 } from 'recharts';
 import { StatCard } from '../components/common/StatCard';
 import { useStore } from '../store/useStore';
-import { spendData, assetStatusData, categorySpendData } from '../data/mockData';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { clsx } from 'clsx';
 import type { Asset, App, Person } from '../types';
+
+const STATUS_COLORS: Record<string, string> = {
+  Deployed: '#22c55e',
+  'In Stock': '#3b82f6',
+  'In Repair': '#f59e0b',
+  Retired: '#9ca3af',
+  Lost: '#ef4444',
+};
 
 const RADIAN = Math.PI / 180;
 function renderCustomizedLabel(props: PieLabelRenderProps) {
   const { cx = 0, cy = 0, midAngle = 0, innerRadius = 0, outerRadius = 0, percent = 0 } = props;
-  if (percent < 0.05) return null;
+  if (Number(percent) < 0.05) return null;
   const inner = Number(innerRadius);
   const outer = Number(outerRadius);
   const radius = inner + (outer - inner) * 0.5;
@@ -37,6 +45,8 @@ export function Dashboard() {
   const assets = useStore((s) => s.assets);
   const apps = useStore((s) => s.apps);
   const people = useStore((s) => s.people);
+  const activityLog = useStore((s) => s.activityLog);
+  const assetGroups = useStore((s) => s.assetGroups);
 
   const activeAssets = assets.filter((a: Asset) => a.status === 'Deployed').length;
   const totalPeople = people.filter((p: Person) => p.status === 'Active').length;
@@ -44,7 +54,61 @@ export function Dashboard() {
     const monthly = app.billingCycle === 'annual' ? app.costPerLicense * app.totalLicenses / 12 : app.costPerLicense * app.totalLicenses;
     return sum + monthly;
   }, 0);
+  const monthlyHardwareCost = assets.reduce((sum: number, a: Asset) => sum + a.cost, 0) / 36;
   const needAction = assets.filter((a: Asset) => a.status === 'In Repair' || a.status === 'Lost').length;
+
+  // ── Reactive chart data ──
+  const assetStatusData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    assets.forEach((a: Asset) => { counts[a.status] = (counts[a.status] || 0) + 1; });
+    return Object.entries(counts).map(([name, value]) => ({
+      name,
+      value,
+      color: STATUS_COLORS[name] || '#9ca3af',
+    }));
+  }, [assets]);
+
+  const categorySpendData = useMemo(() => {
+    const cats: Record<string, { amount: number; count: number }> = {};
+    assets.forEach((a: Asset) => {
+      const cat = a.category || a.type || 'Other';
+      if (!cats[cat]) cats[cat] = { amount: 0, count: 0 };
+      cats[cat].amount += a.cost;
+      cats[cat].count += 1;
+    });
+    const softwareTotal = apps.reduce((s: number, ap: App) =>
+      s + ap.costPerLicense * ap.totalLicenses * (ap.billingCycle === 'monthly' ? 12 : 1), 0);
+    if (softwareTotal > 0) {
+      cats['Software / SaaS'] = { amount: softwareTotal, count: apps.length };
+    }
+    return Object.entries(cats)
+      .map(([category, data]) => ({ category, ...data }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 7);
+  }, [assets, apps]);
+
+  const spendOverTime = useMemo(() => {
+    const months: Record<string, { hardware: number; software: number }> = {};
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = format(d, 'MMM');
+      months[key] = { hardware: 0, software: 0 };
+    }
+    assets.forEach((a: Asset) => {
+      const d = new Date(a.purchaseDate);
+      const key = format(d, 'MMM');
+      if (months[key]) months[key].hardware += a.cost;
+    });
+    const monthlySw = monthlySoftwareCost;
+    Object.keys(months).forEach((k) => { months[k].software = Math.round(monthlySw); });
+    return Object.entries(months).map(([month, data]) => ({
+      month,
+      hardware: data.hardware,
+      software: data.software,
+      total: data.hardware + data.software,
+    }));
+  }, [assets, monthlySoftwareCost]);
 
   const upcomingRenewals = apps
     .filter((app: App) => {
@@ -63,15 +127,13 @@ export function Dashboard() {
   const onboarding = people.filter((p: Person) => p.status === 'Onboarding');
   const offboarding = people.filter((p: Person) => p.status === 'Offboarding');
 
-  const recentActivity = [
-    { id: 'act1', timestamp: '2024-02-21T09:15:00Z', action: 'Asset Created', user: 'Tom Admin', details: 'Dell Latitude 5540 added to inventory', module: 'Assets' },
-    { id: 'act2', timestamp: '2024-02-21T09:00:00Z', action: 'License Assigned', user: 'Tom Admin', details: 'Slack license assigned to Bob Smith', module: 'Apps' },
-    { id: 'act3', timestamp: '2024-02-21T08:45:00Z', action: 'Person Onboarding', user: 'Grace Kim', details: 'Henry Wilson set to Onboarding', module: 'People' },
-    { id: 'act4', timestamp: '2024-02-20T16:30:00Z', action: 'Status Changed', user: 'Tom Admin', details: 'ThinkPad X1 Carbon moved to In Repair', module: 'Assets' },
-    { id: 'act5', timestamp: '2024-02-20T14:00:00Z', action: 'Integration Error', user: 'System', details: 'Xero integration authentication failed', module: 'Integrations' },
-    { id: 'act6', timestamp: '2024-02-20T11:20:00Z', action: 'Person Offboarding', user: 'Grace Kim', details: 'Irene Chen set to Offboarding', module: 'People' },
-    { id: 'act7', timestamp: '2024-02-19T15:45:00Z', action: 'Shadow IT Detected', user: 'System', details: 'Asana detected via SSO — 12 users', module: 'Apps' },
-  ];
+  const lowStockGroups = assetGroups.filter((g) => {
+    const count = assets.filter((a: Asset) =>
+      a.type === g.type && a.status === 'In Stock' &&
+      (!g.model || a.model.includes(g.model))
+    ).length;
+    return count < g.targetStock;
+  });
 
   const moduleColors: Record<string, string> = {
     Assets: 'bg-blue-100 text-blue-700',
@@ -87,7 +149,7 @@ export function Dashboard() {
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-sm text-gray-500 mt-0.5">Welcome back, Tom. Here's your IT overview.</p>
         </div>
-        <button className="btn-secondary text-sm">
+        <button className="btn-secondary text-sm" onClick={() => window.location.reload()}>
           <RefreshCw size={14} /> Refresh
         </button>
       </div>
@@ -96,8 +158,8 @@ export function Dashboard() {
         <StatCard title="Total Assets" value={assets.length} icon={Monitor} iconColor="text-blue-600" iconBg="bg-blue-50" subtitle={`${activeAssets} deployed`} onClick={() => navigate('/assets')} />
         <StatCard title="Apps & Licenses" value={apps.length} icon={AppWindow} iconColor="text-purple-600" iconBg="bg-purple-50" subtitle={`${apps.filter((a: App) => a.status === 'Active').length} active`} onClick={() => navigate('/apps')} />
         <StatCard title="Total People" value={people.length} icon={Users} iconColor="text-green-600" iconBg="bg-green-50" subtitle={`${totalPeople} active`} onClick={() => navigate('/people')} />
-        <StatCard title="Monthly IT Spend" value={`$${(monthlySoftwareCost + 11200).toLocaleString('en-US', { maximumFractionDigits: 0 })}`} icon={DollarSign} iconColor="text-yellow-600" iconBg="bg-yellow-50" trend={{ value: 3.2, label: 'vs last month', positive: false }} />
-        <StatCard title="Needs Action" value={needAction + upcomingRenewals.length} icon={AlertTriangle} iconColor="text-red-600" iconBg="bg-red-50" subtitle="Repairs, renewals, warnings" />
+        <StatCard title="Monthly IT Spend" value={`$${Math.round(monthlySoftwareCost + monthlyHardwareCost).toLocaleString('en-US')}`} icon={DollarSign} iconColor="text-yellow-600" iconBg="bg-yellow-50" trend={{ value: 3.2, label: 'vs last month', positive: false }} />
+        <StatCard title="Needs Action" value={needAction + upcomingRenewals.length + lowStockGroups.length} icon={AlertTriangle} iconColor="text-red-600" iconBg="bg-red-50" subtitle="Repairs, renewals, warnings" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -110,7 +172,7 @@ export function Dashboard() {
             <TrendingUp size={16} className="text-gray-400" />
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={spendData}>
+            <LineChart data={spendOverTime}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `$${(v/1000).toFixed(0)}k`} />
@@ -130,23 +192,29 @@ export function Dashboard() {
             </div>
             <BarChart2 size={16} className="text-gray-400" />
           </div>
-          <ResponsiveContainer width="100%" height={160}>
-            <PieChart>
-              <Pie data={assetStatusData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} labelLine={false} label={renderCustomizedLabel} dataKey="value">
-                {assetStatusData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
-              </Pie>
-              <Tooltip formatter={(value) => [value, 'Assets']} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="grid grid-cols-2 gap-1.5 mt-2">
-            {assetStatusData.map((item) => (
-              <div key={item.name} className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
-                <span className="text-xs text-gray-600 truncate">{item.name}</span>
-                <span className="text-xs font-medium text-gray-900 ml-auto">{item.value}%</span>
+          {assetStatusData.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={160}>
+                <PieChart>
+                  <Pie data={assetStatusData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} labelLine={false} label={renderCustomizedLabel} dataKey="value">
+                    {assetStatusData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
+                  </Pie>
+                  <Tooltip formatter={(value: unknown) => [value, 'Assets']} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="grid grid-cols-2 gap-1.5 mt-2">
+                {assetStatusData.map((item) => (
+                  <div key={item.name} className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                    <span className="text-xs text-gray-600 truncate">{item.name}</span>
+                    <span className="text-xs font-medium text-gray-900 ml-auto">{item.value}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <div className="h-40 flex items-center justify-center text-gray-400 text-sm">No assets yet</div>
+          )}
         </div>
       </div>
 
@@ -159,7 +227,7 @@ export function Dashboard() {
             <BarChart data={categorySpendData} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
               <XAxis type="number" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `$${(v/1000).toFixed(0)}k`} />
-              <YAxis type="category" dataKey="category" width={90} tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="category" width={100} tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
               <Tooltip formatter={(value: unknown) => [`$${Number(value || 0).toLocaleString()}`, 'Spend']} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
               <Bar dataKey="amount" fill="#3b82f6" radius={[0, 4, 4, 0]} />
             </BarChart>
@@ -175,6 +243,19 @@ export function Dashboard() {
             <Bell size={15} className="text-gray-400" />
           </div>
           <div className="space-y-2 overflow-y-auto max-h-64">
+            {lowStockGroups.map((g) => {
+              const stock = assets.filter((a: Asset) => a.type === g.type && a.status === 'In Stock').length;
+              return (
+                <div key={g.id} onClick={() => navigate('/assets')} className="flex items-start gap-3 p-3 rounded-lg bg-red-50 hover:bg-red-100 cursor-pointer transition-colors border border-red-100">
+                  <Monitor size={14} className="mt-0.5 flex-shrink-0 text-red-500" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-900">{g.name} low stock</p>
+                    <p className="text-xs text-gray-500">{stock}/{g.targetStock} in stock</p>
+                  </div>
+                  <ChevronRight size={12} className="text-gray-300 flex-shrink-0 mt-0.5" />
+                </div>
+              );
+            })}
             {upcomingRenewals.slice(0, 3).map((app: App) => {
               const days = Math.ceil((new Date(app.renewalDate).getTime() - Date.now()) / 86400000);
               return (
@@ -221,7 +302,7 @@ export function Dashboard() {
                 <ChevronRight size={12} className="text-gray-300 flex-shrink-0 mt-0.5" />
               </div>
             ))}
-            {upcomingRenewals.length === 0 && warrantyExpiring.length === 0 && onboarding.length === 0 && offboarding.length === 0 && (
+            {upcomingRenewals.length === 0 && warrantyExpiring.length === 0 && onboarding.length === 0 && offboarding.length === 0 && lowStockGroups.length === 0 && (
               <div className="text-center py-6 text-gray-400">
                 <CheckCircle size={24} className="mx-auto mb-2 text-green-400" />
                 <p className="text-sm">All clear! No immediate actions needed.</p>
@@ -239,18 +320,20 @@ export function Dashboard() {
             <Activity size={15} className="text-gray-400" />
           </div>
           <div className="space-y-3 overflow-y-auto max-h-72">
-            {recentActivity.map((entry, i) => (
+            {activityLog.slice(0, 10).map((entry, i) => (
               <div key={entry.id} className="flex items-start gap-3">
                 <div className="relative flex-shrink-0">
                   <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
                     <CheckCircle size={12} className="text-gray-500" />
                   </div>
-                  {i < recentActivity.length - 1 && (<div className="absolute left-3.5 top-7 w-px h-3 bg-gray-200" />)}
+                  {i < Math.min(activityLog.length, 10) - 1 && (<div className="absolute left-3.5 top-7 w-px h-3 bg-gray-200" />)}
                 </div>
                 <div className="flex-1 min-w-0 pb-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-xs font-medium text-gray-900">{entry.action}</p>
-                    <span className={clsx('text-xs px-1.5 py-0.5 rounded font-medium', moduleColors[entry.module] || 'bg-gray-100 text-gray-600')}>{entry.module}</span>
+                    {entry.module && (
+                      <span className={clsx('text-xs px-1.5 py-0.5 rounded font-medium', moduleColors[entry.module] || 'bg-gray-100 text-gray-600')}>{entry.module}</span>
+                    )}
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5 truncate">{entry.details}</p>
                   <p className="text-xs text-gray-400 mt-0.5">{entry.user} · {formatDistanceToNow(new Date(entry.timestamp), { addSuffix: true })}</p>

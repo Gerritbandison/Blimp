@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Edit2, CheckCircle, XCircle,
+  ArrowLeft, Save, X, CheckCircle, XCircle,
   Users, DollarSign, Calendar, ExternalLink
 } from 'lucide-react';
 import { StatusBadge } from '../../components/common/StatusBadge';
@@ -10,7 +10,7 @@ import { DataTable, type Column } from '../../components/common/DataTable';
 import { useStore } from '../../store/useStore';
 import { format, differenceInDays } from 'date-fns';
 import { clsx } from 'clsx';
-import type { License } from '../../types';
+import type { License, AppStatus } from '../../types';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -20,6 +20,8 @@ const TABS = [
   { id: 'compliance', label: 'Compliance' },
   { id: 'activity', label: 'Activity' },
 ];
+
+const APP_STATUSES: AppStatus[] = ['Active', 'Inactive', 'In Review', 'Shadow IT'];
 
 const LICENSE_COLUMNS: Column<License>[] = [
   { key: 'id', label: '#', render: (r) => <span className="text-gray-400">#{r.id.slice(-3)}</span> },
@@ -39,10 +41,31 @@ const LICENSE_COLUMNS: Column<License>[] = [
 export function AppDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { apps, addToast } = useStore();
+  const { apps, updateApp, addToast } = useStore();
   const [activeTab, setActiveTab] = useState('overview');
+  const [isEditing, setIsEditing] = useState(false);
 
   const app = apps.find((a) => a.id === id);
+
+  const [draft, setDraft] = useState({
+    name: '', vendor: '', status: '' as AppStatus, category: '',
+    costPerLicense: 0, totalLicenses: 0, assignedLicenses: 0,
+    renewalDate: '', billingCycle: '' as 'monthly' | 'annual',
+    adminOwner: '', businessOwner: '',
+  });
+
+  useEffect(() => {
+    if (app) {
+      setDraft({
+        name: app.name, vendor: app.vendor, status: app.status,
+        category: app.category, costPerLicense: app.costPerLicense,
+        totalLicenses: app.totalLicenses, assignedLicenses: app.assignedLicenses,
+        renewalDate: app.renewalDate, billingCycle: app.billingCycle,
+        adminOwner: app.adminOwner || '', businessOwner: app.businessOwner || '',
+      });
+    }
+  }, [app]);
+
   if (!app) {
     return (
       <div className="p-6 text-center py-20">
@@ -52,12 +75,34 @@ export function AppDetail() {
     );
   }
 
+  function handleSave() {
+    updateApp(app!.id, {
+      name: draft.name, vendor: draft.vendor, status: draft.status,
+      category: draft.category, costPerLicense: draft.costPerLicense,
+      totalLicenses: draft.totalLicenses, assignedLicenses: draft.assignedLicenses,
+      renewalDate: draft.renewalDate, billingCycle: draft.billingCycle,
+      adminOwner: draft.adminOwner || undefined, businessOwner: draft.businessOwner || undefined,
+    });
+    setIsEditing(false);
+    addToast({ type: 'success', message: `${draft.name} updated successfully` });
+  }
+
+  function handleCancel() {
+    setDraft({
+      name: app!.name, vendor: app!.vendor, status: app!.status,
+      category: app!.category, costPerLicense: app!.costPerLicense,
+      totalLicenses: app!.totalLicenses, assignedLicenses: app!.assignedLicenses,
+      renewalDate: app!.renewalDate, billingCycle: app!.billingCycle,
+      adminOwner: app!.adminOwner || '', businessOwner: app!.businessOwner || '',
+    });
+    setIsEditing(false);
+  }
+
   const daysToRenewal = differenceInDays(new Date(app.renewalDate), new Date());
   const totalCost = app.costPerLicense * app.totalLicenses;
   const monthlyCost = app.billingCycle === 'monthly' ? totalCost : totalCost / 12;
   const utilizationPct = app.totalLicenses > 0 ? (app.assignedLicenses / app.totalLicenses * 100) : 0;
 
-  // Generate mock licenses
   const mockLicenses: License[] = Array.from({ length: Math.min(app.totalLicenses, 15) }, (_, i) => ({
     id: `lic-${app.id}-${i}`,
     appId: app.id,
@@ -77,7 +122,6 @@ export function AppDetail() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Sticky Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate('/apps')} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100">
@@ -102,18 +146,19 @@ export function AppDetail() {
               <span className="flex items-center gap-1"><Calendar size={13} /> Renews {format(new Date(app.renewalDate), 'MMM d, yyyy')} ({daysToRenewal}d)</span>
             </div>
           </div>
-          <button className="btn-primary" onClick={() => addToast({ type: 'info', message: 'Edit mode coming soon' })}>
-            <Edit2 size={14} /> Edit
-          </button>
+          {isEditing ? (
+            <div className="flex items-center gap-2">
+              <button onClick={handleCancel} className="btn-secondary"><X size={14} /> Cancel</button>
+              <button onClick={handleSave} className="btn-primary"><Save size={14} /> Save</button>
+            </div>
+          ) : (
+            <button className="btn-primary" onClick={() => setIsEditing(true)}>Edit</button>
+          )}
         </div>
 
-        {/* License utilization bar */}
         <div className="mt-4 flex items-center gap-3">
           <div className="flex-1 bg-gray-100 rounded-full h-2">
-            <div
-              className={clsx('h-2 rounded-full', utilizationPct > 90 ? 'bg-red-400' : utilizationPct > 70 ? 'bg-yellow-400' : 'bg-blue-400')}
-              style={{ width: `${utilizationPct}%` }}
-            />
+            <div className={clsx('h-2 rounded-full', utilizationPct > 90 ? 'bg-red-400' : utilizationPct > 70 ? 'bg-yellow-400' : 'bg-blue-400')} style={{ width: `${utilizationPct}%` }} />
           </div>
           <span className="text-sm font-medium text-gray-700">{utilizationPct.toFixed(0)}% utilization</span>
           <span className="text-sm text-gray-500">{app.totalLicenses - app.assignedLicenses} unused</span>
@@ -122,31 +167,45 @@ export function AppDetail() {
         <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} className="mt-4" />
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-5">
               <div className="card p-5">
                 <h3 className="text-sm font-semibold text-gray-900 mb-4">App Details</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {[
-                    { label: 'Vendor', value: app.vendor },
-                    { label: 'Category', value: app.category },
-                    { label: 'License Type', value: app.licenseType },
-                    { label: 'Detection Source', value: app.detectionSource },
-                    ...(app.adminOwner ? [{ label: 'Admin Owner', value: app.adminOwner }] : []),
-                    ...(app.businessOwner ? [{ label: 'Business Owner', value: app.businessOwner }] : []),
-                    ...(app.contractStart ? [{ label: 'Contract Start', value: format(new Date(app.contractStart), 'MMM d, yyyy') }] : []),
-                    ...(app.vendorContact ? [{ label: 'Vendor Contact', value: app.vendorContact }] : []),
-                  ].map(({ label, value }) => (
-                    <div key={label}>
-                      <p className="text-xs font-medium text-gray-500">{label}</p>
-                      <p className="text-sm font-medium text-gray-900 mt-0.5">{value}</p>
-                    </div>
-                  ))}
-                </div>
-                {app.description && (
+                {isEditing ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><label className="text-xs font-medium text-gray-500 mb-1 block">Name</label><input className="input" value={draft.name} onChange={(e) => setDraft(d => ({ ...d, name: e.target.value }))} /></div>
+                    <div><label className="text-xs font-medium text-gray-500 mb-1 block">Vendor</label><input className="input" value={draft.vendor} onChange={(e) => setDraft(d => ({ ...d, vendor: e.target.value }))} /></div>
+                    <div><label className="text-xs font-medium text-gray-500 mb-1 block">Status</label><select className="select" value={draft.status} onChange={(e) => setDraft(d => ({ ...d, status: e.target.value as AppStatus }))}>{APP_STATUSES.map(s => <option key={s}>{s}</option>)}</select></div>
+                    <div><label className="text-xs font-medium text-gray-500 mb-1 block">Category</label><input className="input" value={draft.category} onChange={(e) => setDraft(d => ({ ...d, category: e.target.value }))} /></div>
+                    <div><label className="text-xs font-medium text-gray-500 mb-1 block">Cost/License</label><input type="number" className="input" value={draft.costPerLicense} onChange={(e) => setDraft(d => ({ ...d, costPerLicense: parseFloat(e.target.value) || 0 }))} /></div>
+                    <div><label className="text-xs font-medium text-gray-500 mb-1 block">Total Licenses</label><input type="number" className="input" value={draft.totalLicenses} onChange={(e) => setDraft(d => ({ ...d, totalLicenses: parseInt(e.target.value) || 0 }))} /></div>
+                    <div><label className="text-xs font-medium text-gray-500 mb-1 block">Assigned Licenses</label><input type="number" className="input" value={draft.assignedLicenses} onChange={(e) => setDraft(d => ({ ...d, assignedLicenses: parseInt(e.target.value) || 0 }))} /></div>
+                    <div><label className="text-xs font-medium text-gray-500 mb-1 block">Billing Cycle</label><select className="select" value={draft.billingCycle} onChange={(e) => setDraft(d => ({ ...d, billingCycle: e.target.value as 'monthly' | 'annual' }))}><option value="monthly">Monthly</option><option value="annual">Annual</option></select></div>
+                    <div><label className="text-xs font-medium text-gray-500 mb-1 block">Renewal Date</label><input type="date" className="input" value={draft.renewalDate} onChange={(e) => setDraft(d => ({ ...d, renewalDate: e.target.value }))} /></div>
+                    <div><label className="text-xs font-medium text-gray-500 mb-1 block">Admin Owner</label><input className="input" value={draft.adminOwner} onChange={(e) => setDraft(d => ({ ...d, adminOwner: e.target.value }))} /></div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { label: 'Vendor', value: app.vendor },
+                      { label: 'Category', value: app.category },
+                      { label: 'License Type', value: app.licenseType },
+                      { label: 'Detection Source', value: app.detectionSource },
+                      ...(app.adminOwner ? [{ label: 'Admin Owner', value: app.adminOwner }] : []),
+                      ...(app.businessOwner ? [{ label: 'Business Owner', value: app.businessOwner }] : []),
+                      ...(app.contractStart ? [{ label: 'Contract Start', value: format(new Date(app.contractStart), 'MMM d, yyyy') }] : []),
+                      ...(app.vendorContact ? [{ label: 'Vendor Contact', value: app.vendorContact }] : []),
+                    ].map(({ label, value }) => (
+                      <div key={label}>
+                        <p className="text-xs font-medium text-gray-500">{label}</p>
+                        <p className="text-sm font-medium text-gray-900 mt-0.5">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {app.description && !isEditing && (
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <p className="text-xs font-medium text-gray-500 mb-1">Description</p>
                     <p className="text-sm text-gray-700">{app.description}</p>
@@ -158,10 +217,7 @@ export function AppDetail() {
             <div className="space-y-4">
               <div className="card p-5">
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Renewal</h3>
-                <div className={clsx(
-                  'p-3 rounded-lg mb-3',
-                  daysToRenewal < 0 ? 'bg-red-50' : daysToRenewal < 30 ? 'bg-yellow-50' : 'bg-green-50'
-                )}>
+                <div className={clsx('p-3 rounded-lg mb-3', daysToRenewal < 0 ? 'bg-red-50' : daysToRenewal < 30 ? 'bg-yellow-50' : 'bg-green-50')}>
                   <p className={clsx('text-lg font-bold', daysToRenewal < 0 ? 'text-red-600' : daysToRenewal < 30 ? 'text-yellow-600' : 'text-green-600')}>
                     {daysToRenewal < 0 ? 'Overdue' : `${daysToRenewal} days`}
                   </p>
@@ -170,7 +226,6 @@ export function AppDetail() {
                 <p className="text-xs text-gray-500">Notice period: {app.noticePeriodDays} days</p>
                 <p className="text-xs text-gray-500 mt-1">Notice deadline: {format(new Date(new Date(app.renewalDate).getTime() - app.noticePeriodDays * 86400000), 'MMM d, yyyy')}</p>
               </div>
-
               <div className="card p-5">
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">License Summary</h3>
                 <div className="space-y-2">
@@ -179,10 +234,7 @@ export function AppDetail() {
                     { label: 'Assigned', value: app.assignedLicenses, color: 'text-blue-600' },
                     { label: 'Available', value: app.totalLicenses - app.assignedLicenses, color: 'text-green-600' },
                   ].map(({ label, value, color }) => (
-                    <div key={label} className="flex justify-between">
-                      <span className="text-sm text-gray-500">{label}</span>
-                      <span className={clsx('text-sm font-bold', color)}>{value}</span>
-                    </div>
+                    <div key={label} className="flex justify-between"><span className="text-sm text-gray-500">{label}</span><span className={clsx('text-sm font-bold', color)}>{value}</span></div>
                   ))}
                 </div>
               </div>
@@ -194,14 +246,9 @@ export function AppDetail() {
           <div className="card">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-900">License Seats</h3>
-              <button className="btn-primary" onClick={() => addToast({ type: 'success', message: 'License assigned' })}>
-                Assign License
-              </button>
+              <button className="btn-primary" onClick={() => addToast({ type: 'success', message: 'License assigned' })}>Assign License</button>
             </div>
-            <DataTable
-              data={mockLicenses}
-              columns={LICENSE_COLUMNS}
-            />
+            <DataTable data={mockLicenses} columns={LICENSE_COLUMNS} />
           </div>
         )}
 
@@ -226,11 +273,9 @@ export function AppDetail() {
                 ))}
               </div>
             </div>
-
             <div className="card p-5">
               <h3 className="text-sm font-semibold text-gray-900 mb-4">Renewal Timeline</h3>
               <div className="relative pt-6 pb-2">
-                {/* Timeline bar */}
                 <div className="w-full h-4 bg-gray-100 rounded-full relative overflow-hidden">
                   <div className="absolute left-0 top-0 h-full bg-blue-200 rounded-full" style={{ width: `${Math.max(0, 100 - (daysToRenewal / 365) * 100)}%` }} />
                   <div className="absolute right-0 top-0 h-full bg-yellow-200" style={{ width: `${(app.noticePeriodDays / 365) * 100}%` }} />
@@ -241,7 +286,6 @@ export function AppDetail() {
                   <span className="text-red-600">Renewal: {format(new Date(app.renewalDate), 'MMM d')}</span>
                 </div>
               </div>
-
               <div className="mt-5 space-y-2">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Payment History</h4>
                 {[
@@ -271,32 +315,20 @@ export function AppDetail() {
                   <div key={label} className="flex items-center justify-between py-2 border-b border-gray-50">
                     <span className="text-sm text-gray-700">{label}</span>
                     {status ? (
-                      <span className="flex items-center gap-1.5 text-xs font-medium text-green-700">
-                        <CheckCircle size={14} className="text-green-500" /> Certified
-                      </span>
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-green-700"><CheckCircle size={14} className="text-green-500" /> Certified</span>
                     ) : (
-                      <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                        <XCircle size={14} className="text-gray-400" /> Not certified
-                      </span>
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500"><XCircle size={14} className="text-gray-400" /> Not certified</span>
                     )}
                   </div>
                 ))}
               </div>
             </div>
-
             <div className="card p-5">
               <h3 className="text-sm font-semibold text-gray-900 mb-4">Risk & Legal</h3>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">Risk Rating</span>
-                  <span className={clsx(
-                    'text-sm font-semibold px-2 py-0.5 rounded-full',
-                    app.compliance?.riskRating === 'Low' ? 'bg-green-100 text-green-700' :
-                    app.compliance?.riskRating === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-red-100 text-red-700'
-                  )}>
-                    {app.compliance?.riskRating || 'Not assessed'}
-                  </span>
+                  <span className={clsx('text-sm font-semibold px-2 py-0.5 rounded-full', app.compliance?.riskRating === 'Low' ? 'bg-green-100 text-green-700' : app.compliance?.riskRating === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')}>{app.compliance?.riskRating || 'Not assessed'}</span>
                 </div>
                 <div className="flex items-center justify-between py-2 border-t border-gray-50">
                   <span className="text-sm text-gray-500">DPA Status</span>
@@ -304,14 +336,7 @@ export function AppDetail() {
                 </div>
                 <div className="flex items-center justify-between py-2 border-t border-gray-50">
                   <span className="text-sm text-gray-500">Security Questionnaire</span>
-                  <span className={clsx(
-                    'text-xs font-medium px-2 py-0.5 rounded-full',
-                    app.compliance?.questionnaire === 'Complete' ? 'bg-green-100 text-green-700' :
-                    app.compliance?.questionnaire === 'In Progress' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-gray-100 text-gray-600'
-                  )}>
-                    {app.compliance?.questionnaire || 'Not Started'}
-                  </span>
+                  <span className={clsx('text-xs font-medium px-2 py-0.5 rounded-full', app.compliance?.questionnaire === 'Complete' ? 'bg-green-100 text-green-700' : app.compliance?.questionnaire === 'In Progress' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600')}>{app.compliance?.questionnaire || 'Not Started'}</span>
                 </div>
               </div>
             </div>
@@ -327,13 +352,8 @@ export function AppDetail() {
             <div className="space-y-2">
               {['Alice Johnson', 'Bob Smith', 'Carol White', 'David Lee', 'Eve Davis'].slice(0, app.assignedLicenses).map((name, i) => (
                 <div key={name} className="flex items-center gap-3 py-2 border-b border-gray-50">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold">
-                    {name.split(' ').map(n => n[0]).join('')}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{name}</p>
-                    <p className="text-xs text-gray-400">{name.toLowerCase().replace(' ', '.')}@company.com</p>
-                  </div>
+                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold">{name.split(' ').map(n => n[0]).join('')}</div>
+                  <div className="flex-1"><p className="text-sm font-medium text-gray-900">{name}</p><p className="text-xs text-gray-400">{name.toLowerCase().replace(' ', '.')}@company.com</p></div>
                   <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">Active</span>
                   <span className="text-xs text-gray-400">Last login: Feb {i + 15}, 2024</span>
                 </div>
