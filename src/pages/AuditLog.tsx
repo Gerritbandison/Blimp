@@ -184,7 +184,7 @@ export function AuditLog() {
                   onClick={() => {
                     if (entry.entityId && entry.module) {
                       const base = entry.module === 'Assets' ? '/assets' : entry.module === 'Apps' ? '/apps' : '/people';
-                      navigate(`${base}/${entry.entityId}`);
+                      void navigate(`${base}/${entry.entityId}`);
                     }
                   }}
                 >

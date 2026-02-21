@@ -37,10 +37,10 @@ export function DataTable<T extends { id: string }>({
   const sorted = useMemo(() => {
     if (!sortKey) return data;
     return [...data].sort((a, b) => {
-      const av = (a as Record<string, unknown>)[sortKey];
-      const bv = (b as Record<string, unknown>)[sortKey];
-      const aStr = String(av ?? '');
-      const bStr = String(bv ?? '');
+      const av = (a as Record<string, string | number | boolean | null | undefined>)[sortKey];
+      const bv = (b as Record<string, string | number | boolean | null | undefined>)[sortKey];
+      const aStr = av == null ? '' : String(av);
+      const bStr = bv == null ? '' : String(bv);
       return sortDir === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
     });
   }, [data, sortKey, sortDir]);
@@ -207,7 +207,7 @@ export function DataTable<T extends { id: string }>({
                     <td key={String(col.key)} className="py-3 px-4 text-gray-700 whitespace-nowrap">
                       {col.render
                         ? col.render(row)
-                        : String((row as Record<string, unknown>)[String(col.key)] ?? '—')}
+                        : (() => { const v = (row as Record<string, string | number | boolean | null | undefined>)[String(col.key)]; return v == null ? '—' : String(v); })()}
                     </td>
                   ))}
                 </tr>

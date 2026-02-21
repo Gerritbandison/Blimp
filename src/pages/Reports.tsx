@@ -220,7 +220,7 @@ export function Reports() {
                 {warrantyExpiringAssets.map((asset) => {
                   const days = Math.ceil((new Date(asset.warrantyExpiry).getTime() - Date.now()) / 86400000);
                   return (
-                    <div key={asset.id} className="flex items-center gap-4 py-2.5 hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/assets/${asset.id}`)}>
+                    <div key={asset.id} className="flex items-center gap-4 py-2.5 hover:bg-gray-50 cursor-pointer" onClick={() => { void navigate(`/assets/${asset.id}`); }}>
                       <Monitor size={15} className="text-gray-400 flex-shrink-0" />
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">{asset.name}</p>

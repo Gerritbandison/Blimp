@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Building2, Users, SlidersHorizontal, Bell, Tag, Key, CreditCard,
-  Plus, Trash2, Copy, RefreshCw, Palette, Sun, Moon, Laptop, Edit3
+  Plus, Trash2, Copy, RefreshCw, Palette, Sun, Moon, Laptop, Edit3, Eye, EyeOff
 } from 'lucide-react';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { Modal } from '../components/common/Modal';
@@ -410,7 +410,7 @@ export function Settings() {
                   </div>
                   <div className="flex items-center gap-2">
                     <button onClick={() => setApiKeyVisible((v) => !v)} aria-label={apiKeyVisible ? 'Hide API key' : 'Show API key'} className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-50 text-xs">
-                      {apiKeyVisible ? '●' : '○'}
+                      {apiKeyVisible ? <EyeOff size={13} /> : <Eye size={13} />}
                     </button>
                     <button onClick={() => { void navigator.clipboard.writeText(apiKey); addToast({ type: 'success', message: 'API key copied to clipboard' }); }} aria-label="Copy API key" className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-50"><Copy size={12} /></button>
                     <button onClick={generateApiKey} aria-label="Rotate API key" className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-50"><RefreshCw size={12} /></button>

@@ -155,9 +155,9 @@ export function Dashboard() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard title="Total Assets" value={assets.length} icon={Monitor} iconColor="text-blue-600" iconBg="bg-blue-50" subtitle={`${activeAssets} deployed`} onClick={() => navigate('/assets')} />
-        <StatCard title="Apps & Licenses" value={apps.length} icon={AppWindow} iconColor="text-purple-600" iconBg="bg-purple-50" subtitle={`${apps.filter((a: App) => a.status === 'Active').length} active`} onClick={() => navigate('/apps')} />
-        <StatCard title="Total People" value={people.length} icon={Users} iconColor="text-green-600" iconBg="bg-green-50" subtitle={`${totalPeople} active`} onClick={() => navigate('/people')} />
+        <StatCard title="Total Assets" value={assets.length} icon={Monitor} iconColor="text-blue-600" iconBg="bg-blue-50" subtitle={`${activeAssets} deployed`} onClick={() => { void navigate('/assets'); }} />
+        <StatCard title="Apps & Licenses" value={apps.length} icon={AppWindow} iconColor="text-purple-600" iconBg="bg-purple-50" subtitle={`${apps.filter((a: App) => a.status === 'Active').length} active`} onClick={() => { void navigate('/apps'); }} />
+        <StatCard title="Total People" value={people.length} icon={Users} iconColor="text-green-600" iconBg="bg-green-50" subtitle={`${totalPeople} active`} onClick={() => { void navigate('/people'); }} />
         <StatCard title="Monthly IT Spend" value={`$${Math.round(monthlySoftwareCost + monthlyHardwareCost).toLocaleString('en-US')}`} icon={DollarSign} iconColor="text-yellow-600" iconBg="bg-yellow-50" trend={{ value: 3.2, label: 'vs last month', positive: false }} />
         <StatCard title="Needs Action" value={needAction + upcomingRenewals.length + lowStockGroups.length} icon={AlertTriangle} iconColor="text-red-600" iconBg="bg-red-50" subtitle="Repairs, renewals, warnings" />
       </div>
@@ -199,7 +199,7 @@ export function Dashboard() {
                   <Pie data={assetStatusData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} labelLine={false} label={renderCustomizedLabel} dataKey="value">
                     {assetStatusData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
                   </Pie>
-                  <Tooltip formatter={(value: unknown) => [String(value ?? 0), 'Assets']} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                  <Tooltip formatter={(value: unknown) => [String(typeof value === 'number' || typeof value === 'string' ? value : 0), 'Assets']} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="grid grid-cols-2 gap-1.5 mt-2">
@@ -246,7 +246,7 @@ export function Dashboard() {
             {lowStockGroups.map((g) => {
               const stock = assets.filter((a: Asset) => a.type === g.type && a.status === 'In Stock').length;
               return (
-                <div key={g.id} onClick={() => navigate('/assets')} className="flex items-start gap-3 p-3 rounded-lg bg-red-50 hover:bg-red-100 cursor-pointer transition-colors border border-red-100">
+                <div key={g.id} onClick={() => { void navigate('/assets'); }} className="flex items-start gap-3 p-3 rounded-lg bg-red-50 hover:bg-red-100 cursor-pointer transition-colors border border-red-100">
                   <Monitor size={14} className="mt-0.5 flex-shrink-0 text-red-500" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-gray-900">{g.name} low stock</p>
@@ -259,7 +259,7 @@ export function Dashboard() {
             {upcomingRenewals.slice(0, 3).map((app: App) => {
               const days = Math.ceil((new Date(app.renewalDate).getTime() - Date.now()) / 86400000);
               return (
-                <div key={app.id} onClick={() => navigate(`/apps/${app.id}`)} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 hover:bg-yellow-50 cursor-pointer transition-colors border border-gray-100">
+                <div key={app.id} onClick={() => { void navigate(`/apps/${app.id}`); }} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 hover:bg-yellow-50 cursor-pointer transition-colors border border-gray-100">
                   <Clock size={14} className={clsx('mt-0.5 flex-shrink-0', days <= 14 ? 'text-red-500' : 'text-yellow-500')} />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-gray-900">{app.name} renewal</p>
@@ -272,7 +272,7 @@ export function Dashboard() {
             {warrantyExpiring.slice(0, 2).map((asset: Asset) => {
               const days = Math.ceil((new Date(asset.warrantyExpiry).getTime() - Date.now()) / 86400000);
               return (
-                <div key={asset.id} onClick={() => navigate(`/assets/${asset.id}`)} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 hover:bg-orange-50 cursor-pointer transition-colors border border-gray-100">
+                <div key={asset.id} onClick={() => { void navigate(`/assets/${asset.id}`); }} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 hover:bg-orange-50 cursor-pointer transition-colors border border-gray-100">
                   <AlertTriangle size={14} className="mt-0.5 flex-shrink-0 text-orange-500" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-gray-900">{asset.name} warranty</p>
@@ -283,7 +283,7 @@ export function Dashboard() {
               );
             })}
             {onboarding.map((p: Person) => (
-              <div key={p.id} onClick={() => navigate(`/people/${p.id}`)} className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 hover:bg-blue-100 cursor-pointer transition-colors border border-blue-100">
+              <div key={p.id} onClick={() => { void navigate(`/people/${p.id}`); }} className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 hover:bg-blue-100 cursor-pointer transition-colors border border-blue-100">
                 <Users size={14} className="mt-0.5 flex-shrink-0 text-blue-500" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-gray-900">{p.name} onboarding</p>
@@ -293,7 +293,7 @@ export function Dashboard() {
               </div>
             ))}
             {offboarding.map((p: Person) => (
-              <div key={p.id} onClick={() => navigate(`/people/${p.id}`)} className="flex items-start gap-3 p-3 rounded-lg bg-orange-50 hover:bg-orange-100 cursor-pointer transition-colors border border-orange-100">
+              <div key={p.id} onClick={() => { void navigate(`/people/${p.id}`); }} className="flex items-start gap-3 p-3 rounded-lg bg-orange-50 hover:bg-orange-100 cursor-pointer transition-colors border border-orange-100">
                 <AlertTriangle size={14} className="mt-0.5 flex-shrink-0 text-orange-500" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-gray-900">{p.name} offboarding</p>

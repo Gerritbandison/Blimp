@@ -84,7 +84,7 @@ export function PersonDetail() {
     return (
       <div className="p-6 text-center py-20">
         <p className="text-gray-500">Person not found</p>
-        <button onClick={() => navigate('/people')} className="btn-primary mt-4">Back to People</button>
+        <button onClick={() => { void navigate('/people'); }} className="btn-primary mt-4">Back to People</button>
       </div>
     );
   }
@@ -118,7 +118,7 @@ export function PersonDetail() {
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/people')} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100">
+          <button onClick={() => { void navigate('/people'); }} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100">
             <ArrowLeft size={16} />
           </button>
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
@@ -284,7 +284,7 @@ export function PersonDetail() {
             ) : (
               <div className="divide-y divide-gray-50">
                 {assignedAssets.map((asset) => (
-                  <div key={asset.id} onClick={() => navigate(`/assets/${asset.id}`)} className="flex items-center gap-4 py-3 hover:bg-gray-50 cursor-pointer rounded-lg px-2 -mx-2 transition-colors">
+                  <div key={asset.id} onClick={() => { void navigate(`/assets/${asset.id}`); }} className="flex items-center gap-4 py-3 hover:bg-gray-50 cursor-pointer rounded-lg px-2 -mx-2 transition-colors">
                     <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0"><Monitor size={14} className="text-blue-600" /></div>
                     <div className="flex-1"><p className="text-sm font-medium text-gray-900">{asset.name}</p><p className="text-xs text-gray-500">{asset.tag} · {asset.make} {asset.model}</p></div>
                     <StatusBadge status={asset.status} />
@@ -301,7 +301,7 @@ export function PersonDetail() {
             <h3 className="text-sm font-semibold text-gray-900 mb-4">App Access & Licenses ({person.licensesAssigned})</h3>
             <div className="divide-y divide-gray-50">
               {apps.slice(0, person.licensesAssigned).map((app) => (
-                <div key={app.id} onClick={() => navigate(`/apps/${app.id}`)} className="flex items-center gap-4 py-3 hover:bg-gray-50 cursor-pointer rounded-lg px-2 -mx-2 transition-colors">
+                <div key={app.id} onClick={() => { void navigate(`/apps/${app.id}`); }} className="flex items-center gap-4 py-3 hover:bg-gray-50 cursor-pointer rounded-lg px-2 -mx-2 transition-colors">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{app.name.substring(0, 2).toUpperCase()}</div>
                   <div className="flex-1"><p className="text-sm font-medium text-gray-900">{app.name}</p><p className="text-xs text-gray-500">{app.vendor} · {app.licenseType}</p></div>
                   <StatusBadge status="Active" />

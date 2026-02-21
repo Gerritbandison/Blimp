@@ -8,7 +8,7 @@
  *   - One Peripheral Asset per non-built-in peripheral (keyboard, mouse, dock, etc.)
  */
 
-import type { Asset, AssetType, AgentReport, AgentDisplay, AgentPeripheral } from '../types';
+import type { Asset, AssetType, AgentReport, AgentDisplay } from '../types';
 
 // ─── EDID vendor ID → manufacturer name map ──────────────────────────────────
 const EDID_VENDORS: Record<string, string> = {
@@ -156,7 +156,7 @@ export function buildAssetsFromReport(report: AgentReport, integrationId: string
   });
 
   // Build peripheral assets — skip built-in devices (touchpad, internal keyboard)
-  const externalPeripherals = (peripherals as AgentPeripheral[]).filter((p) => !p.isBuiltIn);
+  const externalPeripherals = peripherals.filter((p) => !p.isBuiltIn);
 
   const peripheralAssets: Asset[] = externalPeripherals.map((p, idx) => {
     const makeStr = p.manufacturer || 'Unknown';

@@ -62,7 +62,7 @@ function CodeBlock({ code }: { code: string }) {
         {code}
       </pre>
       <button
-        onClick={() => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1800); }}
+        onClick={() => { void navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1800); }}
         className="absolute top-2 right-2 px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded opacity-0 group-hover:opacity-100 transition-opacity"
       >
         {copied ? 'Copied!' : 'Copy'}

@@ -302,7 +302,7 @@ export function AppList() {
           <DataTable
             data={filtered}
             columns={COLUMNS}
-            onRowClick={(row) => navigate(`/apps/${row.id}`)}
+            onRowClick={(row) => { void navigate(`/apps/${row.id}`); }}
             emptyState={
               <EmptyState
                 icon={AppWindow}
@@ -329,7 +329,7 @@ export function AppList() {
               return (
                 <div
                   key={app.id}
-                  onClick={() => navigate(`/apps/${app.id}`)}
+                  onClick={() => { void navigate(`/apps/${app.id}`); }}
                   className="flex items-center gap-4 p-3 border border-gray-100 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">

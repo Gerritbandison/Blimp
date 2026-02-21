@@ -40,7 +40,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw { status: res.status, message: body || res.statusText } satisfies ApiError;
+    const err = new Error(body || res.statusText) as Error & ApiError;
+    err.status = res.status;
+    throw err;
   }
 
   return res.json() as Promise<T>;

@@ -10,7 +10,7 @@ export function exportToCSV<T extends Record<string, unknown>>(
     columns
       .map((c) => {
         const val = row[c.key];
-        const str = val === null || val === undefined ? '' : String(val);
+        const str = val == null ? '' : typeof val !== 'object' ? String(val as string | number | boolean) : JSON.stringify(val);
         return `"${str.replace(/"/g, '""')}"`;
       })
       .join(',')

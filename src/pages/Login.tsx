@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Server, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/useAuth';
 import { useStore } from '../store/useStore';
 
 export function Login() {
@@ -38,7 +38,7 @@ export function Login() {
       setCurrentUserName(result.user.name);
     }
 
-    navigate(from, { replace: true });
+    void navigate(from, { replace: true });
   }
 
   return (

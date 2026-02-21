@@ -76,7 +76,7 @@ export function IntuneModal({ open, onClose, onConnected }: Props) {
           <button className="btn-secondary" onClick={handleClose}>Cancel</button>
           <button
             className="btn-primary"
-            onClick={handleValidate}
+            onClick={() => { void handleValidate(); }}
             disabled={!canValidate}
           >
             Validate & Connect

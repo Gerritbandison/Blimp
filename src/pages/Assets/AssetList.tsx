@@ -430,7 +430,7 @@ export function AssetList() {
         <DataTable
           data={filtered}
           columns={visibleColumns}
-          onRowClick={(row) => navigate(`/assets/${row.id}`)}
+          onRowClick={(row) => { void navigate(`/assets/${row.id}`); }}
           selectable
           selectedIds={selectedIds}
           onSelectionChange={setSelectedIds}

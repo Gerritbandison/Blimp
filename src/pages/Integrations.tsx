@@ -409,7 +409,7 @@ export function Integrations() {
 
     try {
       let assetsAdded = 0;
-      let assetsUpdated = 0;
+      const assetsUpdated = 0;
       let peopleAdded = 0;
       let appsAdded = 0;
       let skipped = 0;
@@ -758,7 +758,7 @@ export function Integrations() {
                       </button>
                     ) : (
                       <button
-                        onClick={() => handleSync(integration)}
+                        onClick={() => { void handleSync(integration); }}
                         disabled={!!isSyncing}
                         className={clsx(
                           'btn-secondary flex-1 justify-center text-xs py-1.5',
@@ -825,9 +825,9 @@ export function Integrations() {
           open={showSettings}
           integration={settingsIntegration}
           onClose={() => { setShowSettings(false); setSettingsIntegration(null); }}
-          onSyncNow={() => handleSync(settingsIntegration)}
+          onSyncNow={() => { void handleSync(settingsIntegration); }}
           onDisconnect={() => handleDisconnect(settingsIntegration)}
-          onViewAssets={() => navigate('/assets')}
+          onViewAssets={() => { void navigate('/assets'); }}
         />
       )}
 
@@ -839,7 +839,7 @@ export function Integrations() {
           onViewAssets={() => {
             setSyncResult(null);
             // Navigate based on what was synced
-            navigate('/assets');
+            void navigate('/assets');
           }}
         />
       )}

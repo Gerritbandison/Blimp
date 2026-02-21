@@ -1,7 +1,7 @@
 import { clsx } from 'clsx';
-import type { AssetStatus, AppStatus, PersonStatus, LicenseStatus } from '../../types';
 
-type Status = AssetStatus | AppStatus | PersonStatus | LicenseStatus | string;
+
+type Status = string;
 
 const statusConfig: Record<string, { bg: string; text: string; dot: string }> = {
   'Deployed':     { bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' },

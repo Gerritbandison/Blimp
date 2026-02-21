@@ -194,7 +194,7 @@ export function PeopleList() {
         <DataTable
           data={filtered}
           columns={COLUMNS}
-          onRowClick={(row) => navigate(`/people/${row.id}`)}
+          onRowClick={(row) => { void navigate(`/people/${row.id}`); }}
           emptyState={
             <EmptyState
               icon={Users}

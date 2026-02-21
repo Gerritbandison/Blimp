@@ -1,8 +1,30 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PageLoader } from './components/common/PageLoader';
+
+import { useAuth } from './auth/useAuth';
+import { useStore } from './store/useStore';
+
+/** Syncs the authenticated user into the Zustand store on mount and on auth changes. */
+function AuthSync() {
+  const { user } = useAuth();
+  const setCurrentUserName = useStore((s) => s.setCurrentUserName);
+  const setCurrentUserRole = useStore((s) => s.setCurrentUserRole);
+
+  useEffect(() => {
+    if (user) {
+      setCurrentUserName(user.name);
+      setCurrentUserRole(user.role);
+    } else {
+      setCurrentUserName('Unknown User');
+      setCurrentUserRole('Admin');
+    }
+  }, [user, setCurrentUserName, setCurrentUserRole]);
+
+  return null;
+}
 
 // Lazy-loaded page components — each becomes a separate chunk
 const Dashboard   = lazy(() => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard })));
@@ -21,6 +43,7 @@ const Login       = lazy(() => import('./pages/Login').then((m) => ({ default: m
 export default function App() {
   return (
     <BrowserRouter>
+      <AuthSync />
       <Suspense fallback={<PageLoader />}>
         <Routes>
           {/* Public routes */}

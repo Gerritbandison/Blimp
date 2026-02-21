@@ -67,7 +67,7 @@ export function NinjaOneModal({ open, onClose, onConnected }: Props) {
       {step === 'Configure' && (
         <>
           <button className="btn-secondary" onClick={handleClose}>Cancel</button>
-          <button className="btn-primary" onClick={handleValidate} disabled={!canValidate}>
+          <button className="btn-primary" onClick={() => { void handleValidate(); }} disabled={!canValidate}>
             Validate & Connect
           </button>
         </>

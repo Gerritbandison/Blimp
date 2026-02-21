@@ -91,7 +91,7 @@ export function TopBar() {
           <span key={crumb.path} className="flex items-center gap-1.5">
             {i > 0 && <span className="text-gray-300">/</span>}
             <button
-              onClick={() => navigate(crumb.path)}
+              onClick={() => { void navigate(crumb.path); }}
               className={clsx(
                 'transition-colors',
                 i === crumbs.length - 1
@@ -151,7 +151,7 @@ export function TopBar() {
                     {searchResults.assets.map((asset) => (
                       <button
                         key={asset.id}
-                        onClick={() => { navigate(`/assets/${asset.id}`); setShowSearchResults(false); setGlobalSearch(''); }}
+                        onClick={() => { void navigate(`/assets/${asset.id}`); setShowSearchResults(false); setGlobalSearch(''); }}
                         className="w-full px-3 py-2.5 flex items-center gap-3 hover:bg-blue-50 transition-colors text-left"
                       >
                         <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
@@ -176,7 +176,7 @@ export function TopBar() {
                     {searchResults.apps.map((app) => (
                       <button
                         key={app.id}
-                        onClick={() => { navigate(`/apps/${app.id}`); setShowSearchResults(false); setGlobalSearch(''); }}
+                        onClick={() => { void navigate(`/apps/${app.id}`); setShowSearchResults(false); setGlobalSearch(''); }}
                         className="w-full px-3 py-2.5 flex items-center gap-3 hover:bg-blue-50 transition-colors text-left"
                       >
                         <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
@@ -201,7 +201,7 @@ export function TopBar() {
                     {searchResults.people.map((person) => (
                       <button
                         key={person.id}
-                        onClick={() => { navigate(`/people/${person.id}`); setShowSearchResults(false); setGlobalSearch(''); }}
+                        onClick={() => { void navigate(`/people/${person.id}`); setShowSearchResults(false); setGlobalSearch(''); }}
                         className="w-full px-3 py-2.5 flex items-center gap-3 hover:bg-blue-50 transition-colors text-left"
                       >
                         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
@@ -293,7 +293,7 @@ export function TopBar() {
               {notifications.slice(0, 20).map((n) => (
                 <div
                   key={n.id}
-                  onClick={() => { if (n.link) { navigate(n.link); setShowNotifications(false); } }}
+                  onClick={() => { if (n.link) { void navigate(n.link); setShowNotifications(false); } }}
                   className={clsx(
                     'px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors',
                     !n.read && 'bg-blue-50/50',
@@ -352,7 +352,7 @@ export function TopBar() {
             {quickAddOptions.map((opt) => (
               <button
                 key={opt.path}
-                onClick={() => { navigate(opt.path); setShowQuickAdd(false); }}
+                onClick={() => { void navigate(opt.path); setShowQuickAdd(false); }}
                 className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left transition-colors"
               >
                 {opt.label}

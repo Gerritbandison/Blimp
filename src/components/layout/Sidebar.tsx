@@ -5,7 +5,7 @@ import {
   Server, Shield
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import { useAuth } from '../../auth/AuthContext';
+import { useAuth } from '../../auth/useAuth';
 import { clsx } from 'clsx';
 
 const navItems = [

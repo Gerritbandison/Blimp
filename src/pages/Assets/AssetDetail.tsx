@@ -130,7 +130,7 @@ export function AssetDetail() {
     return (
       <div className="p-6 text-center py-20">
         <p className="text-gray-500">Asset not found</p>
-        <button onClick={() => navigate('/assets')} className="btn-primary mt-4">Back to Assets</button>
+        <button onClick={() => { void navigate('/assets'); }} className="btn-primary mt-4">Back to Assets</button>
       </div>
     );
   }
@@ -178,7 +178,7 @@ export function AssetDetail() {
     <div className="flex flex-col h-full">
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/assets')} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
+          <button onClick={() => { void navigate('/assets'); }} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
             <ArrowLeft size={16} />
           </button>
           <div className="flex-1 min-w-0">

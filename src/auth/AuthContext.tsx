@@ -1,6 +1,5 @@
 import {
   createContext,
-  useContext,
   useState,
   useCallback,
   type ReactNode,
@@ -102,7 +101,8 @@ function clearAuth() {
 
 // ─── Context ─────────────────────────────────────────────────────────────────
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+// eslint-disable-next-line react-refresh/only-export-components -- context must be co-located with AuthProvider
+export const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>(loadPersistedAuth);
@@ -172,12 +172,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
-
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error('useAuth must be used within an <AuthProvider>');
-  }
-  return ctx;
-}

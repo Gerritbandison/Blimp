@@ -70,7 +70,7 @@ export function AppDetail() {
     return (
       <div className="p-6 text-center py-20">
         <p className="text-gray-500">App not found</p>
-        <button onClick={() => navigate('/apps')} className="btn-primary mt-4">Back to Apps</button>
+        <button onClick={() => { void navigate('/apps'); }} className="btn-primary mt-4">Back to Apps</button>
       </div>
     );
   }
@@ -124,7 +124,7 @@ export function AppDetail() {
     <div className="flex flex-col h-full">
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/apps')} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100">
+          <button onClick={() => { void navigate('/apps'); }} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100">
             <ArrowLeft size={16} />
           </button>
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white font-bold flex-shrink-0">
