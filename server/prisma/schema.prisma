@@ -1,0 +1,394 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth & Users ────────────────────────────────────────────────────────────
+
+enum UserRole {
+  Admin
+  ITManager
+  Finance
+  ReadOnly
+  Custom
+}
+
+enum UserStatus {
+  Active
+  Invited
+  Suspended
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  passwordHash String
+  role         UserRole   @default(ReadOnly)
+  status       UserStatus @default(Active)
+  department   String?
+  photo        String?
+  lastLogin    DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  activities ActivityEntry[] @relation("ActivityUser")
+}
+
+// ─── Assets ──────────────────────────────────────────────────────────────────
+
+enum AssetStatus {
+  Deployed
+  InStock
+  InRepair
+  Retired
+  Lost
+}
+
+enum AssetType {
+  Laptop
+  Monitor
+  Phone
+  Tablet
+  Desktop
+  Server
+  Printer
+  Network
+  Peripheral
+  Other
+}
+
+model Asset {
+  id              String      @id @default(cuid())
+  tag             String      @unique
+  name            String
+  type            AssetType
+  make            String
+  model           String
+  serial          String
+  status          AssetStatus @default(InStock)
+  assignedTo      String?
+  assignedToId    String?
+  location        String
+  purchaseDate    DateTime
+  warrantyExpiry  DateTime
+  cost            Float       @default(0)
+  currency        String      @default("USD")
+  os              String?
+  ram             String?
+  storage         String?
+  screenSize      String?
+  poNumber        String?
+  vendor          String?
+  notes           String?
+  tags            String[]    @default([])
+  department      String?
+  category        String?
+  detectionSource String?
+  qrCode          String?
+
+  // Depreciation
+  depMethod       String?
+  depUsefulLife   Int?
+  depResidualVal  Float?
+
+  // Lease
+  isLeased        Boolean  @default(false)
+  leaseEnd        DateTime?
+  lessor          String?
+  monthlyPayment  Float?
+
+  // Relations
+  lifecycle   LifecycleEvent[]
+  activities  ActivityEntry[]  @relation("AssetActivities")
+  documents   Document[]       @relation("AssetDocuments")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([type])
+  @@index([assignedToId])
+  @@index([serial])
+}
+
+model LifecycleEvent {
+  id          String  @id @default(cuid())
+  date        DateTime
+  event       String
+  description String?
+  user        String?
+
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  assetId String
+
+  @@index([assetId])
+}
+
+// ─── Apps & Licenses ─────────────────────────────────────────────────────────
+
+enum AppStatus {
+  Active
+  Inactive
+  Pending
+  Expired
+  InReview
+  ShadowIT
+}
+
+enum LicenseType {
+  PerUser
+  PerDevice
+  Site
+  Enterprise
+  OpenSource
+}
+
+enum LicenseStatus {
+  Active
+  Unused
+  Pending
+  Expired
+}
+
+model App {
+  id               String      @id @default(cuid())
+  name             String
+  vendor           String
+  logo             String?
+  category         String
+  licenseType      LicenseType
+  totalLicenses    Int
+  assignedLicenses Int         @default(0)
+  costPerLicense   Float
+  billingCycle     String      @default("annual")
+  currency         String      @default("USD")
+  renewalDate      DateTime
+  noticePeriodDays Int         @default(30)
+  status           AppStatus   @default(Active)
+  detectionSource  String      @default("Manual")
+  adminOwner       String?
+  businessOwner    String?
+  description      String?
+  vendorContact    String?
+  contractStart    DateTime?
+  contractEnd      DateTime?
+  supportTier      String?
+  url              String?
+  tags             String[]    @default([])
+
+  // Compliance
+  compSoc2           Boolean @default(false)
+  compIso27001       Boolean @default(false)
+  compGdpr           Boolean @default(false)
+  compHipaa          Boolean?
+  compCyberEss       Boolean?
+  compRiskRating     String  @default("Low")
+  compLastAudit      DateTime?
+  compDpaStatus      String?
+  compQuestionnaire  String?
+
+  licenses   License[]
+  activities ActivityEntry[] @relation("AppActivities")
+  documents  Document[]      @relation("AppDocuments")
+  payments   Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([vendor])
+}
+
+model License {
+  id           String        @id @default(cuid())
+  appId        String
+  app          App           @relation(fields: [appId], references: [id], onDelete: Cascade)
+  assignedTo   String?
+  assignedToId String?
+  status       LicenseStatus @default(Unused)
+  assignedDate DateTime?
+  lastUsed     DateTime?
+  key          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([appId])
+  @@index([status])
+}
+
+model Payment {
+  id       String   @id @default(cuid())
+  appId    String
+  app      App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  date     DateTime
+  amount   Float
+  currency String   @default("USD")
+  status   String   @default("Paid")
+  invoice  String?
+
+  @@index([appId])
+}
+
+// ─── People ──────────────────────────────────────────────────────────────────
+
+enum PersonStatus {
+  Active
+  Onboarding
+  Offboarding
+  Offboarded
+}
+
+model Person {
+  id               String       @id @default(cuid())
+  name             String
+  email            String       @unique
+  department       String
+  title            String
+  status           PersonStatus @default(Active)
+  location         String
+  startDate        DateTime
+  endDate          DateTime?
+  managerId        String?
+  managerName      String?
+  phone            String?
+  photo            String?
+  assetsAssigned   Int          @default(0)
+  licensesAssigned Int          @default(0)
+  notes            String?
+  totalItCost      Float?
+  tags             String[]     @default([])
+
+  activities ActivityEntry[] @relation("PersonActivities")
+  documents  Document[]      @relation("PersonDocuments")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([department])
+  @@index([email])
+}
+
+// ─── Integrations ────────────────────────────────────────────────────────────
+
+enum IntegrationStatus {
+  Connected
+  Disconnected
+  Error
+  Syncing
+}
+
+model Integration {
+  id            String            @id @default(cuid())
+  name          String
+  category      String
+  logo          String?
+  description   String
+  status        IntegrationStatus @default(Disconnected)
+  lastSync      DateTime?
+  syncFrequency String?
+  connectedAt   DateTime?
+  features      String[]          @default([])
+  syncCount     Int               @default(0)
+  errorMessage  String?
+
+  // Encrypted credentials stored as JSON
+  configEncrypted String?
+
+  syncResults SyncResult[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SyncResult {
+  id            String   @id @default(cuid())
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  at            DateTime @default(now())
+  assetsAdded   Int      @default(0)
+  assetsUpdated Int      @default(0)
+  peopleAdded   Int      @default(0)
+  appsAdded     Int      @default(0)
+  skipped       Int      @default(0)
+  errors        String[] @default([])
+
+  @@index([integrationId])
+}
+
+// ─── Common ──────────────────────────────────────────────────────────────────
+
+model Document {
+  id         String   @id @default(cuid())
+  name       String
+  type       String
+  size       Int
+  uploadedAt DateTime @default(now())
+  uploadedBy String
+  url        String?
+
+  assetId  String?
+  asset    Asset?  @relation("AssetDocuments", fields: [assetId], references: [id], onDelete: Cascade)
+  appId    String?
+  app      App?    @relation("AppDocuments", fields: [appId], references: [id], onDelete: Cascade)
+  personId String?
+  person   Person? @relation("PersonDocuments", fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@index([appId])
+  @@index([personId])
+}
+
+model ActivityEntry {
+  id         String   @id @default(cuid())
+  timestamp  DateTime @default(now())
+  action     String
+  user       String
+  details    String?
+  module     String?
+  entityId   String?
+  entityName String?
+
+  userId   String?
+  userRef  User?   @relation("ActivityUser", fields: [userId], references: [id], onDelete: SetNull)
+  assetId  String?
+  asset    Asset?  @relation("AssetActivities", fields: [assetId], references: [id], onDelete: SetNull)
+  appId    String?
+  app      App?    @relation("AppActivities", fields: [appId], references: [id], onDelete: SetNull)
+  personId String?
+  person   Person? @relation("PersonActivities", fields: [personId], references: [id], onDelete: SetNull)
+
+  @@index([timestamp])
+  @@index([module])
+  @@index([userId])
+}
+
+// ─── Settings ────────────────────────────────────────────────────────────────
+
+model CompanySettings {
+  id              String @id @default("default")
+  name            String @default("")
+  domain          String @default("")
+  currency        String @default("USD")
+  fiscalYearStart String @default("January")
+  timezone        String @default("America/New_York")
+  plan            String @default("Business")
+}
+
+model NotificationSettings {
+  id              String  @id @default("default")
+  renewalReminder Boolean @default(true)
+  renewalDays     Int     @default(30)
+  warrantyExpiry  Boolean @default(true)
+  warrantyDays    Int     @default(60)
+  lowStock        Boolean @default(true)
+  onboarding      Boolean @default(true)
+  offboarding     Boolean @default(true)
+  shadowIt        Boolean @default(true)
+}

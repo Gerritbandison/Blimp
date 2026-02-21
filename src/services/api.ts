@@ -19,6 +19,24 @@ export interface ApiError {
   message: string;
 }
 
+// ─── Token management ───────────────────────────────────────────────────────
+
+const TOKEN_KEY = 'blimp-auth-token';
+
+export function setAuthToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function getAuthToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function clearAuthToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+// ─── Request client ─────────────────────────────────────────────────────────
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!BASE_URL) {
     throw new Error(
@@ -27,13 +45,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   const url = `${BASE_URL.replace(/\/$/, '')}${path}`;
+  const token = getAuthToken();
 
   const res = await fetch(url, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      // TODO: inject Bearer token from auth context once backend auth is live
-      // Authorization: `Bearer ${getToken()}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
   });
@@ -42,6 +60,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await res.text().catch(() => '');
     const err = new Error(body || res.statusText) as Error & ApiError;
     err.status = res.status;
+
+    // Auto-clear token on 401
+    if (res.status === 401) {
+      clearAuthToken();
+    }
+
     throw err;
   }
 

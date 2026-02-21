@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: blimp
+      POSTGRES_PASSWORD: blimp
+      POSTGRES_DB: blimp
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blimp"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Backend API ──────────────────────────────────────────────────────────────
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://blimp:blimp@db:5432/blimp?schema=public
+      JWT_SECRET: local-dev-secret-change-in-production
+      JWT_EXPIRES_IN: 8h
+      PORT: "3001"
+      CORS_ORIGIN: http://localhost:5173
+    ports:
+      - "3001:3001"
+
+  # ── Frontend (Vite dev server) ───────────────────────────────────────────────
+  # Uncomment to run the frontend in Docker instead of locally:
+  #
+  # frontend:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #     args:
+  #       VITE_API_BASE_URL: http://localhost:3001
+  #   ports:
+  #     - "8080:80"
+  #   depends_on:
+  #     - server
+
+volumes:
+  pgdata:
