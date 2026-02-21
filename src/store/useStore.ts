@@ -28,6 +28,7 @@ interface AppState {
   activityLog: ActivityEntry[];
   customFields: CustomField[];
   currentUserRole: UserRole;
+  currentUserName: string;
 
   // Settings (persisted)
   companySettings: CompanySettings;
@@ -44,8 +45,9 @@ interface AppState {
   setGlobalSearch: (search: string) => void;
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
 
-  // RBAC
+  // RBAC / identity
   setCurrentUserRole: (role: UserRole) => void;
+  setCurrentUserName: (name: string) => void;
 
   // Asset actions
   addAsset: (asset: Asset) => void;
@@ -87,8 +89,8 @@ interface AppState {
   updateCompanySettings: (updates: Partial<CompanySettings>) => void;
   updateNotificationSettings: (updates: Partial<NotificationSettings>) => void;
 
-  // Activity Log
-  addActivity: (entry: Omit<ActivityEntry, 'id' | 'timestamp'>) => void;
+  // Activity Log — user defaults to currentUserName if omitted
+  addActivity: (entry: Omit<ActivityEntry, 'id' | 'timestamp' | 'user'> & { user?: string }) => void;
 
   // Toast actions
   addToast: (toast: Omit<ToastMessage, 'id'>) => void;
@@ -96,8 +98,8 @@ interface AppState {
 }
 
 const defaultCompanySettings: CompanySettings = {
-  name: 'Acme Corp',
-  domain: 'acme.com',
+  name: '',
+  domain: '',
   currency: 'USD',
   fiscalYearStart: 'January',
   timezone: 'America/New_York',
@@ -128,6 +130,7 @@ export const useStore = create<AppState>()(
       activityLog: mockActivityLog,
       customFields: [],
       currentUserRole: 'Admin',
+      currentUserName: 'Unknown User',
 
       companySettings: defaultCompanySettings,
       notificationSettings: defaultNotificationSettings,
@@ -141,11 +144,11 @@ export const useStore = create<AppState>()(
       setGlobalSearch: (search) => set({ globalSearch: search }),
       setTheme: (theme) => set({ theme }),
       setCurrentUserRole: (role) => set({ currentUserRole: role }),
+      setCurrentUserName: (name) => set({ currentUserName: name }),
 
       // ── Asset actions ──
       addAsset: (asset) => {
         set((state) => ({ assets: [asset, ...state.assets] }));
-        // Auto-generate notification if warranty < 60 days
         const warrantyDays = Math.ceil(
           (new Date(asset.warrantyExpiry).getTime() - Date.now()) / 86400000
         );
@@ -161,7 +164,6 @@ export const useStore = create<AppState>()(
         }
         get().addActivity({
           action: 'Asset Created',
-          user: 'Current User',
           details: `${asset.name} (${asset.tag}) added to inventory`,
           module: 'Assets',
           entityId: asset.id,
@@ -180,7 +182,6 @@ export const useStore = create<AppState>()(
         if (asset) {
           get().addActivity({
             action: 'Asset Deleted',
-            user: 'Current User',
             details: `${asset.name} (${asset.tag}) removed from inventory`,
             module: 'Assets',
             entityId: id,
@@ -195,7 +196,6 @@ export const useStore = create<AppState>()(
         }));
         get().addActivity({
           action: 'Bulk Asset Update',
-          user: 'Current User',
           details: `Updated ${ids.length} asset(s): ${Object.keys(updates).join(', ')}`,
           module: 'Assets',
         });
@@ -205,7 +205,6 @@ export const useStore = create<AppState>()(
         set((state) => ({ assets: [...newAssets, ...state.assets] }));
         get().addActivity({
           action: 'Assets Imported',
-          user: 'Current User',
           details: `Imported ${newAssets.length} asset(s) via CSV`,
           module: 'Assets',
         });
@@ -229,7 +228,6 @@ export const useStore = create<AppState>()(
         }
         get().addActivity({
           action: 'App Added',
-          user: 'Current User',
           details: `${app.name} added to app register`,
           module: 'Apps',
           entityId: app.id,
@@ -257,7 +255,6 @@ export const useStore = create<AppState>()(
         }
         get().addActivity({
           action: person.status === 'Onboarding' ? 'Person Onboarding' : 'Person Created',
-          user: 'Current User',
           details: `${person.name} added to system`,
           module: 'People',
           entityId: person.id,
@@ -351,16 +348,18 @@ export const useStore = create<AppState>()(
         })),
 
       // ── Activity Log ──
+      // user defaults to currentUserName when not explicitly provided
       addActivity: (entry) =>
         set((state) => ({
           activityLog: [
             {
               ...entry,
+              user: entry.user ?? state.currentUserName,
               id: `act${Date.now()}-${Math.random().toString(36).substring(7)}`,
               timestamp: new Date().toISOString(),
             },
             ...state.activityLog,
-          ].slice(0, 500), // Keep last 500 entries
+          ].slice(0, 500),
         })),
 
       // ── Toast actions ──
@@ -387,6 +386,7 @@ export const useStore = create<AppState>()(
         activityLog: state.activityLog,
         customFields: state.customFields,
         currentUserRole: state.currentUserRole,
+        currentUserName: state.currentUserName,
         companySettings: state.companySettings,
         notificationSettings: state.notificationSettings,
         sidebarCollapsed: state.sidebarCollapsed,

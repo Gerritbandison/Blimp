@@ -102,7 +102,22 @@ export function Settings() {
     setShowFieldModal(false);
   }
 
-  const apiKey = 'blimp_sk_live_xK9mN2pQ7rT4vW8yZ3cA6bE1dF5hJ0';
+  const [apiKey, setApiKey] = useState<string>(() => {
+    return localStorage.getItem('blimp-api-key') ?? '';
+  });
+  const [apiKeyVisible, setApiKeyVisible] = useState(false);
+
+  function generateApiKey() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const randomPart = Array.from({ length: 32 }, () =>
+      chars[Math.floor(Math.random() * chars.length)]
+    ).join('');
+    const key = `blimp_sk_live_${randomPart}`;
+    setApiKey(key);
+    setApiKeyVisible(true);
+    localStorage.setItem('blimp-api-key', key);
+    addToast({ type: 'success', message: 'New API key generated — save it now, it will not be shown again' });
+  }
 
   return (
     <div className="flex h-full">
@@ -382,16 +397,32 @@ export function Settings() {
             <div className="card p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-gray-900">API Keys</h3>
-                <button className="btn-secondary" onClick={() => addToast({ type: 'success', message: 'New API key generated' })}><Plus size={14} /> Generate Key</button>
+                <button className="btn-secondary" onClick={generateApiKey}><Plus size={14} /> Generate Key</button>
               </div>
-              <div className="flex items-center gap-3 p-3 border border-gray-100 rounded-xl">
-                <Key size={15} className="text-gray-400 flex-shrink-0" />
-                <div className="flex-1 min-w-0"><p className="text-xs font-medium text-gray-700">Production Key</p><p className="font-mono text-xs text-gray-500 truncate">{apiKey}</p></div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => { navigator.clipboard.writeText(apiKey); addToast({ type: 'success', message: 'API key copied to clipboard' }); }} className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-50"><Copy size={12} /></button>
-                  <button onClick={() => addToast({ type: 'warning', message: 'API key rotated — update your integrations' })} className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-50"><RefreshCw size={12} /></button>
+              {apiKey ? (
+                <div className="flex items-center gap-3 p-3 border border-gray-100 rounded-xl">
+                  <Key size={15} className="text-gray-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-700">Production Key</p>
+                    <p className="font-mono text-xs text-gray-500 truncate">
+                      {apiKeyVisible ? apiKey : `blimp_sk_live_${'•'.repeat(32)}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setApiKeyVisible((v) => !v)} aria-label={apiKeyVisible ? 'Hide API key' : 'Show API key'} className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-50 text-xs">
+                      {apiKeyVisible ? '●' : '○'}
+                    </button>
+                    <button onClick={() => { void navigator.clipboard.writeText(apiKey); addToast({ type: 'success', message: 'API key copied to clipboard' }); }} aria-label="Copy API key" className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-50"><Copy size={12} /></button>
+                    <button onClick={generateApiKey} aria-label="Rotate API key" className="w-7 h-7 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-50"><RefreshCw size={12} /></button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center">
+                  <Key size={24} className="text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No API key generated yet</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Click <strong>Generate Key</strong> to create your first key</p>
+                </div>
+              )}
             </div>
             <div className="card p-5">
               <div className="flex items-center justify-between mb-4">

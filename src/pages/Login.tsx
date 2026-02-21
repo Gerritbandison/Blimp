@@ -6,7 +6,7 @@ import { useStore } from '../store/useStore';
 
 export function Login() {
   const { login } = useAuth();
-  const { setCurrentUserRole } = useStore();
+  const { setCurrentUserRole, setCurrentUserName } = useStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -32,9 +32,10 @@ export function Login() {
       return;
     }
 
-    // Sync auth role into the Zustand store so RBAC filtering works immediately
-    if (result.user?.role) {
+    // Sync auth identity into the Zustand store so RBAC and audit log work immediately
+    if (result.user) {
       setCurrentUserRole(result.user.role);
+      setCurrentUserName(result.user.name);
     }
 
     navigate(from, { replace: true });

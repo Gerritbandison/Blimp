@@ -71,6 +71,10 @@ function CodeBlock({ code }: { code: string }) {
   );
 }
 
+// Configurable via VITE_AGENT_PORT env var; defaults to the standard agent port
+const AGENT_PORT = (import.meta.env.VITE_AGENT_PORT as string | undefined) ?? '51723';
+const AGENT_URL = `http://localhost:${AGENT_PORT}/report`;
+
 export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('install');
   const [installOs, setInstallOs] = useState<OS>('macos');
@@ -131,7 +135,7 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
   function handleDiscover() {
     setDiscovering(true);
     setDiscoverResult(null);
-    fetch('http://localhost:51723/report', { signal: AbortSignal.timeout(4000) })
+    fetch(AGENT_URL, { signal: AbortSignal.timeout(4000) })
       .then((r) => r.json())
       .then((data) => {
         setDiscovering(false);
@@ -235,7 +239,7 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
               </p>
               <CodeBlock code={cmds.service} />
               <p className="text-xs text-gray-400 mt-1">
-                Runs on port 51723. Use <strong>Auto-Discover</strong> to pull data automatically when the machine is on the same network.
+                Runs on port {AGENT_PORT}. Use <strong>Auto-Discover</strong> to pull data automatically when the machine is on the same network.
               </p>
             </div>
 
@@ -379,7 +383,7 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
             <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
               <p className="text-xs font-semibold text-gray-700">How it works</p>
               <p className="text-xs text-gray-500">1. Install the agent in server mode: <code className="bg-gray-100 px-1 rounded">python3 blimp_agent.py --server</code></p>
-              <p className="text-xs text-gray-500">2. Click <strong>Check Now</strong> — Blimp will query <code className="bg-gray-100 px-1 rounded">http://localhost:51723/report</code></p>
+              <p className="text-xs text-gray-500">2. Click <strong>Check Now</strong> — Blimp will query <code className="bg-gray-100 px-1 rounded">{AGENT_URL}</code></p>
               <p className="text-xs text-gray-500">3. If found, the report loads automatically into the Import tab</p>
             </div>
 
@@ -405,7 +409,7 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
               <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
                 <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold">Agent not detected on localhost:51723</p>
+                  <p className="font-semibold">Agent not detected on localhost:{AGENT_PORT}</p>
                   <p className="mt-0.5">Make sure the agent is running in server mode. See the <button className="underline" onClick={() => setActiveTab('install')}>Install</button> tab for instructions.</p>
                 </div>
               </div>

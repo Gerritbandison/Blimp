@@ -33,9 +33,52 @@ const DEMO_USERS: Array<AuthUser & { password: string }> = [
   { email: 'viewer@blimp.io',  password: 'viewer123',  name: 'Viewer User',  role: 'Read Only' },
 ];
 
-const STORAGE_KEY = 'blimp-auth';
+// ─── Rate limiting ────────────────────────────────────────────────────────────
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+const RATE_KEY = 'blimp-login-attempts';
+
+interface AttemptRecord {
+  count: number;
+  lockedUntil: number | null;
+}
+
+function getAttemptRecord(email: string): AttemptRecord {
+  try {
+    const raw = localStorage.getItem(RATE_KEY);
+    const all = raw ? (JSON.parse(raw) as Record<string, AttemptRecord>) : {};
+    return all[email.toLowerCase()] ?? { count: 0, lockedUntil: null };
+  } catch {
+    return { count: 0, lockedUntil: null };
+  }
+}
+
+function setAttemptRecord(email: string, record: AttemptRecord) {
+  try {
+    const raw = localStorage.getItem(RATE_KEY);
+    const all = raw ? (JSON.parse(raw) as Record<string, AttemptRecord>) : {};
+    all[email.toLowerCase()] = record;
+    localStorage.setItem(RATE_KEY, JSON.stringify(all));
+  } catch {
+    // storage unavailable — fail open (no rate limiting)
+  }
+}
+
+function clearAttemptRecord(email: string) {
+  try {
+    const raw = localStorage.getItem(RATE_KEY);
+    const all = raw ? (JSON.parse(raw) as Record<string, AttemptRecord>) : {};
+    delete all[email.toLowerCase()];
+    localStorage.setItem(RATE_KEY, JSON.stringify(all));
+  } catch {
+    // ignore
+  }
+}
+
+// ─── Auth persistence ─────────────────────────────────────────────────────────
+
+const STORAGE_KEY = 'blimp-auth';
 
 function loadPersistedAuth(): AuthState {
   try {
@@ -66,16 +109,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string): Promise<{ ok: boolean; user?: AuthUser; error?: string }> => {
+      const normalizedEmail = email.trim().toLowerCase();
+
+      // Check rate limit
+      const record = getAttemptRecord(normalizedEmail);
+      if (record.lockedUntil !== null) {
+        const remaining = Math.ceil((record.lockedUntil - Date.now()) / 60000);
+        if (Date.now() < record.lockedUntil) {
+          return {
+            ok: false,
+            error: `Too many failed attempts. Try again in ${remaining} minute${remaining === 1 ? '' : 's'}.`,
+          };
+        }
+        // Lockout has expired — reset
+        setAttemptRecord(normalizedEmail, { count: 0, lockedUntil: null });
+      }
+
       // Simulate network latency for the demo
       await new Promise((r) => setTimeout(r, 400));
 
       const match = DEMO_USERS.find(
-        (u) => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password
+        (u) => u.email.toLowerCase() === normalizedEmail && u.password === password
       );
 
       if (!match) {
-        return { ok: false, error: 'Invalid email or password.' };
+        const newCount = record.count + 1;
+        const locked = newCount >= MAX_ATTEMPTS;
+        setAttemptRecord(normalizedEmail, {
+          count: newCount,
+          lockedUntil: locked ? Date.now() + LOCKOUT_MS : null,
+        });
+        const remaining = MAX_ATTEMPTS - newCount;
+        return {
+          ok: false,
+          error: locked
+            ? `Account locked for 15 minutes after too many failed attempts.`
+            : `Invalid email or password.${remaining > 0 ? ` ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.` : ''}`,
+        };
       }
+
+      // Success — clear failed attempt counter
+      clearAttemptRecord(normalizedEmail);
 
       const user: AuthUser = { name: match.name, email: match.email, role: match.role };
       const next: AuthState = { isAuthenticated: true, user };
