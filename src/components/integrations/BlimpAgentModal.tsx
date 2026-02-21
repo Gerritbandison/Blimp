@@ -190,8 +190,8 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
                 <p className="text-xs text-gray-500">Python 3.9+ · No external dependencies · ~8 KB</p>
               </div>
               <a
-                href="/agent/blimp_agent.py"
-                download
+                href="/blimp_agent.py"
+                download="blimp_agent.py"
                 className="btn-secondary text-xs py-1.5 flex items-center gap-1.5"
               >
                 <Download size={12} /> Download

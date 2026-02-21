@@ -10,8 +10,7 @@ interface Props {
   onConnected: (config: IntuneConfig) => void;
 }
 
-const STEPS = ['Configure', 'Validate', 'Done'] as const;
-type Step = typeof STEPS[number];
+type Step = 'Configure' | 'Validate' | 'Done';
 
 export function IntuneModal({ open, onClose, onConnected }: Props) {
   const [step, setStep] = useState<Step>('Configure');

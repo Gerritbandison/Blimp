@@ -1,12 +1,14 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Plug, CheckCircle, AlertTriangle, RefreshCw, Settings, Clock, Zap, X,
+  Plug, CheckCircle, AlertTriangle, RefreshCw, Settings, Clock, Zap, X, ChevronRight,
 } from 'lucide-react';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { Modal } from '../components/common/Modal';
 import { IntuneModal } from '../components/integrations/IntuneModal';
 import { NinjaOneModal } from '../components/integrations/NinjaOneModal';
 import { BlimpAgentModal } from '../components/integrations/BlimpAgentModal';
+import { IntegrationSettingsModal } from '../components/integrations/IntegrationSettingsModal';
 import { useStore } from '../store/useStore';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
@@ -60,11 +62,14 @@ function SyncResultPanel({
   result,
   integrationName,
   onClose,
+  onViewAssets,
 }: {
   result: SyncResult;
   integrationName: string;
   onClose: () => void;
+  onViewAssets: () => void;
 }) {
+  const totalAdded = result.assetsAdded + result.peopleAdded + result.appsAdded;
   return (
     <div className="fixed bottom-6 right-6 z-50 w-80 bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 bg-green-50 border-b border-green-100">
@@ -93,10 +98,24 @@ function SyncResultPanel({
         </div>
         {result.errors.length > 0 && (
           <div className="p-2 bg-red-50 rounded-lg text-xs text-red-700 space-y-0.5">
-            {result.errors.map((e, i) => <p key={i}>⚠ {e}</p>)}
+            {result.errors.map((e, i) => (
+              <p key={i} className="flex items-center gap-1">
+                <AlertTriangle size={10} /> {e}
+              </p>
+            ))}
           </div>
         )}
-        <p className="text-xs text-gray-400">{format(new Date(result.at), 'MMM d, h:mm a')}</p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-gray-400">{format(new Date(result.at), 'MMM d, h:mm a')}</p>
+          {totalAdded > 0 && (
+            <button
+              onClick={() => { onViewAssets(); onClose(); }}
+              className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-0.5"
+            >
+              View records <ChevronRight size={11} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -113,10 +132,11 @@ function GenericConnectModal({
   open: boolean;
   integration: Integration | null;
   onClose: () => void;
-  onConnected: () => void;
+  onConnected: (syncFrequency: string) => void;
 }) {
   const [step, setStep] = useState<'config' | 'validate' | 'done'>('config');
   const [apiKey, setApiKey] = useState('');
+  const [syncFreq, setSyncFreq] = useState('Every 4 hours');
 
   function handleValidate() {
     setStep('validate');
@@ -124,14 +144,14 @@ function GenericConnectModal({
   }
 
   function handleDone() {
-    onConnected();
+    onConnected(syncFreq);
     onClose();
-    setTimeout(() => { setStep('config'); setApiKey(''); }, 300);
+    setTimeout(() => { setStep('config'); setApiKey(''); setSyncFreq('Every 4 hours'); }, 300);
   }
 
   function handleClose() {
     onClose();
-    setTimeout(() => { setStep('config'); setApiKey(''); }, 300);
+    setTimeout(() => { setStep('config'); setApiKey(''); setSyncFreq('Every 4 hours'); }, 300);
   }
 
   const footer = step === 'done' ? (
@@ -177,7 +197,11 @@ function GenericConnectModal({
           </div>
           <div>
             <label className="text-xs font-medium text-gray-700 mb-1 block">Sync Frequency</label>
-            <select className="select">
+            <select
+              className="select"
+              value={syncFreq}
+              onChange={(e) => setSyncFreq(e.target.value)}
+            >
               <option>Every hour</option>
               <option>Every 4 hours</option>
               <option>Daily</option>
@@ -229,6 +253,8 @@ export function Integrations() {
     addActivity,
   } = useStore();
 
+  const navigate = useNavigate();
+
   const [activeCategory, setActiveCategory] = useState('All');
   const [syncing, setSyncing] = useState<string | null>(null);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
@@ -238,7 +264,9 @@ export function Integrations() {
   const [showNinja, setShowNinja] = useState(false);
   const [showAgent, setShowAgent] = useState(false);
   const [showGeneric, setShowGeneric] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [selectedIntegration, setSelectedIntegration] = useState<Integration | null>(null);
+  const [settingsIntegration, setSettingsIntegration] = useState<Integration | null>(null);
 
   const filtered = integrations.filter(
     (i) => activeCategory === 'All' || i.category === activeCategory
@@ -255,6 +283,29 @@ export function Integrations() {
     else if (integration.name === 'NinjaOne') setShowNinja(true);
     else if (integration.name === 'Blimp Agent') setShowAgent(true);
     else setShowGeneric(true);
+  }
+
+  function handleSettings(integration: Integration) {
+    setSettingsIntegration(integration);
+    setShowSettings(true);
+  }
+
+  function handleDisconnect(integration: Integration) {
+    updateIntegration(integration.id, {
+      status: 'Disconnected',
+      config: undefined,
+      connectedAt: undefined,
+      lastSyncResult: undefined,
+    });
+    addActivity({
+      action: 'Integration Disconnected',
+      user: 'Current User',
+      details: `${integration.name} disconnected and credentials removed`,
+      module: 'Integrations',
+      entityId: integration.id,
+      entityName: integration.name,
+    });
+    addToast({ type: 'info', message: `${integration.name} disconnected` });
   }
 
   function handleIntuneConnected(config: IntuneConfig) {
@@ -295,12 +346,13 @@ export function Integrations() {
     setTimeout(() => handleSync({ ...ninjaIntegration, status: 'Connected' }), 600);
   }
 
-  function handleGenericConnected() {
+  function handleGenericConnected(syncFrequency: string) {
     if (!selectedIntegration) return;
     updateIntegration(selectedIntegration.id, {
       status: 'Connected',
       lastSync: new Date().toISOString(),
       connectedAt: new Date().toISOString().split('T')[0],
+      syncFrequency,
     });
     addToast({ type: 'success', message: `${selectedIntegration.name} connected!` });
   }
@@ -526,19 +578,29 @@ export function Integrations() {
 
       {/* Error banner */}
       {errors.length > 0 && (
-        <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
-          <AlertTriangle size={18} className="text-red-500 flex-shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-red-800">Integration Errors</p>
-            {errors.map((e) => (
-              <p key={e.id} className="text-sm text-red-700 mt-0.5">
-                {e.name}: {e.errorMessage}
-              </p>
-            ))}
+        <div className="p-4 bg-red-50 border border-red-200 rounded-xl space-y-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={15} className="text-red-500 flex-shrink-0" />
+            <p className="text-sm font-semibold text-red-800">
+              {errors.length} integration {errors.length === 1 ? 'error' : 'errors'} need attention
+            </p>
           </div>
-          <button className="btn-secondary border-red-200 text-red-700 hover:bg-red-100">
-            Fix Issues
-          </button>
+          {errors.map((e) => (
+            <div key={e.id} className="flex items-center justify-between pl-5">
+              <div>
+                <span className="text-sm font-medium text-red-700">{e.name}</span>
+                {e.errorMessage && (
+                  <span className="text-xs text-red-500 ml-2">— {e.errorMessage}</span>
+                )}
+              </div>
+              <button
+                onClick={() => handleConnect(e)}
+                className="text-xs font-semibold text-red-700 border border-red-300 px-2.5 py-1 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-1"
+              >
+                <Zap size={11} /> Reconnect
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
@@ -707,7 +769,11 @@ export function Integrations() {
                         {isSyncing ? 'Syncing…' : 'Sync Now'}
                       </button>
                     )}
-                    <button className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-500">
+                    <button
+                      onClick={() => handleSettings(integration)}
+                      title="Integration settings"
+                      className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-500 hover:text-gray-700 transition-colors"
+                    >
                       <Settings size={14} />
                     </button>
                   </>
@@ -754,11 +820,27 @@ export function Integrations() {
         onConnected={handleGenericConnected}
       />
 
+      {settingsIntegration && (
+        <IntegrationSettingsModal
+          open={showSettings}
+          integration={settingsIntegration}
+          onClose={() => { setShowSettings(false); setSettingsIntegration(null); }}
+          onSyncNow={() => handleSync(settingsIntegration)}
+          onDisconnect={() => handleDisconnect(settingsIntegration)}
+          onViewAssets={() => navigate('/assets')}
+        />
+      )}
+
       {syncResult && (
         <SyncResultPanel
           result={syncResult}
           integrationName={syncResultName}
           onClose={() => setSyncResult(null)}
+          onViewAssets={() => {
+            setSyncResult(null);
+            // Navigate based on what was synced
+            navigate('/assets');
+          }}
         />
       )}
     </div>
