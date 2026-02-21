@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import { X } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -12,6 +12,8 @@ interface ModalProps {
 }
 
 export function Modal({ open, onClose, title, children, size = 'md', footer }: ModalProps) {
+  const titleId = useId();
+
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
@@ -37,13 +39,29 @@ export function Modal({ open, onClose, title, children, size = 'md', footer }: M
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className={clsx('relative bg-white rounded-2xl shadow-2xl w-full flex flex-col max-h-[85vh]', sizeMap[size])}>
+      {/* Backdrop — decorative, click closes dialog */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* Dialog */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className={clsx(
+          'relative bg-white rounded-2xl shadow-2xl w-full flex flex-col max-h-[85vh]',
+          sizeMap[size]
+        )}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+          <h2 id={titleId} className="text-lg font-semibold text-gray-900">{title}</h2>
           <button
             onClick={onClose}
+            aria-label="Close dialog"
             className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
           >
             <X size={16} />

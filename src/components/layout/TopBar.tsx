@@ -225,8 +225,10 @@ export function TopBar() {
       <div className="relative">
         <button
           onClick={() => { setShowThemeMenu(!showThemeMenu); setShowNotifications(false); setShowQuickAdd(false); }}
+          aria-label="Toggle theme"
+          aria-haspopup="true"
+          aria-expanded={showThemeMenu}
           className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-900"
-          title="Toggle theme"
         >
           <ThemeIcon size={18} />
         </button>
@@ -258,6 +260,9 @@ export function TopBar() {
       <div className="relative">
         <button
           onClick={() => { setShowNotifications(!showNotifications); setShowQuickAdd(false); setShowThemeMenu(false); }}
+          aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+          aria-haspopup="true"
+          aria-expanded={showNotifications}
           className="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-900"
         >
           <Bell size={18} />
@@ -335,6 +340,8 @@ export function TopBar() {
       <div className="relative">
         <button
           onClick={() => { setShowQuickAdd(!showQuickAdd); setShowNotifications(false); setShowThemeMenu(false); }}
+          aria-haspopup="true"
+          aria-expanded={showQuickAdd}
           className="btn-primary text-sm"
         >
           <Plus size={16} />

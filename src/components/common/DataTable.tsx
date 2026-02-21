@@ -77,7 +77,7 @@ export function DataTable<T extends { id: string }>({
   if (loading) {
     return (
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm" aria-busy="true" aria-label="Loading data">
           <thead>
             <tr className="border-b border-gray-100">
               {visibleColumns.map((col) => (
@@ -110,42 +110,60 @@ export function DataTable<T extends { id: string }>({
           <thead className="bg-gray-50/80 border-b border-gray-100">
             <tr>
               {selectable && (
-                <th className="w-10 py-3 px-4">
+                <th className="w-10 py-3 px-4" scope="col">
                   <input
                     type="checkbox"
+                    aria-label="Select all rows on this page"
                     className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     checked={paged.length > 0 && paged.every((r) => selectedIds.includes(r.id))}
                     onChange={toggleAll}
                   />
                 </th>
               )}
-              {visibleColumns.map((col) => (
-                <th
-                  key={String(col.key)}
-                  className={clsx(
-                    'text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap',
-                    col.sortable !== false && 'cursor-pointer hover:text-gray-900 select-none',
-                    col.width && `w-${col.width}`
-                  )}
-                  onClick={() => col.sortable !== false && handleSort(String(col.key))}
-                >
-                  <span className="flex items-center gap-1">
-                    {col.label}
-                    {col.sortable !== false && (
-                      <span className="flex flex-col">
-                        <ChevronUp
-                          size={10}
-                          className={clsx(sortKey === String(col.key) && sortDir === 'asc' ? 'text-blue-600' : 'text-gray-300')}
-                        />
-                        <ChevronDown
-                          size={10}
-                          className={clsx(sortKey === String(col.key) && sortDir === 'desc' ? 'text-blue-600' : 'text-gray-300')}
-                        />
-                      </span>
+              {visibleColumns.map((col) => {
+                const isSortable = col.sortable !== false;
+                const isActive = sortKey === String(col.key);
+                const ariaSortValue: React.AriaAttributes['aria-sort'] = isActive
+                  ? sortDir === 'asc' ? 'ascending' : 'descending'
+                  : isSortable ? 'none' : undefined;
+
+                return (
+                  <th
+                    key={String(col.key)}
+                    scope="col"
+                    aria-sort={ariaSortValue}
+                    tabIndex={isSortable ? 0 : undefined}
+                    className={clsx(
+                      'text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap',
+                      isSortable && 'cursor-pointer hover:text-gray-900 select-none',
+                      col.width && `w-${col.width}`
                     )}
-                  </span>
-                </th>
-              ))}
+                    onClick={() => isSortable && handleSort(String(col.key))}
+                    onKeyDown={(e) => {
+                      if (isSortable && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        handleSort(String(col.key));
+                      }
+                    }}
+                  >
+                    <span className="flex items-center gap-1">
+                      {col.label}
+                      {isSortable && (
+                        <span className="flex flex-col" aria-hidden="true">
+                          <ChevronUp
+                            size={10}
+                            className={clsx(isActive && sortDir === 'asc' ? 'text-blue-600' : 'text-gray-300')}
+                          />
+                          <ChevronDown
+                            size={10}
+                            className={clsx(isActive && sortDir === 'desc' ? 'text-blue-600' : 'text-gray-300')}
+                          />
+                        </span>
+                      )}
+                    </span>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -178,6 +196,7 @@ export function DataTable<T extends { id: string }>({
                     <td className="w-10 py-3 px-4" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
+                        aria-label={`Select row`}
                         className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         checked={selectedIds.includes(row.id)}
                         onChange={() => toggleRow(row.id)}
@@ -204,10 +223,11 @@ export function DataTable<T extends { id: string }>({
           <p className="text-sm text-gray-500">
             Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, sorted.length)} of {sorted.length}
           </p>
-          <div className="flex items-center gap-1">
+          <nav aria-label="Table pagination" className="flex items-center gap-1">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
+              aria-label="Previous page"
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ChevronLeft size={14} />
@@ -219,6 +239,8 @@ export function DataTable<T extends { id: string }>({
                 <button
                   key={p}
                   onClick={() => setPage(p)}
+                  aria-label={`Page ${p}`}
+                  aria-current={p === page ? 'page' : undefined}
                   className={clsx(
                     'w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors',
                     p === page
@@ -233,11 +255,12 @@ export function DataTable<T extends { id: string }>({
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
+              aria-label="Next page"
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ChevronRight size={14} />
             </button>
-          </div>
+          </nav>
         </div>
       )}
     </div>

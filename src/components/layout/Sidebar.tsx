@@ -5,6 +5,7 @@ import {
   Server, Shield
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
+import { useAuth } from '../../auth/AuthContext';
 import { clsx } from 'clsx';
 
 const navItems = [
@@ -20,20 +21,27 @@ const navItems = [
 
 export function Sidebar() {
   const { sidebarCollapsed, setSidebarCollapsed, currentUserRole } = useStore();
+  const { user, logout } = useAuth();
   const location = useLocation();
 
   // RBAC: filter nav items based on role
   const filteredNavItems = navItems.filter(({ to }) => {
     if (currentUserRole === 'Read Only') {
-      // Read Only: no settings, no integrations
       return !['/settings', '/integrations'].includes(to);
     }
     if (currentUserRole === 'Finance') {
-      // Finance: no integrations, no settings (user mgmt)
       return !['/integrations'].includes(to);
     }
     return true;
   });
+
+  const displayName = user?.name ?? 'User';
+  const initials = displayName
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <aside
@@ -53,7 +61,7 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 py-4 overflow-y-auto">
+      <nav aria-label="Main navigation" className="flex-1 py-4 overflow-y-auto">
         <div className={clsx('mb-1 px-3', !sidebarCollapsed && 'px-4')}>
           {!sidebarCollapsed && (
             <p className="text-xs font-semibold text-[#5a6580] uppercase tracking-wider mb-2 px-2">
@@ -68,6 +76,8 @@ export function Sidebar() {
               <NavLink
                 key={to}
                 to={to}
+                aria-label={sidebarCollapsed ? label : undefined}
+                aria-current={isActive ? 'page' : undefined}
                 className={clsx(
                   'flex items-center gap-3 px-2 py-2.5 rounded-lg mb-0.5 transition-all duration-150 group',
                   isActive
@@ -78,6 +88,7 @@ export function Sidebar() {
               >
                 <Icon
                   size={18}
+                  aria-hidden="true"
                   className={clsx(
                     'flex-shrink-0 transition-colors',
                     isActive ? 'text-blue-400' : 'text-[#8892a4] group-hover:text-white'
@@ -87,7 +98,7 @@ export function Sidebar() {
                   <span className="text-sm font-medium truncate">{label}</span>
                 )}
                 {isActive && !sidebarCollapsed && (
-                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400" />
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400" aria-hidden="true" />
                 )}
               </NavLink>
             );
@@ -98,20 +109,29 @@ export function Sidebar() {
       {/* Bottom section */}
       <div className="border-t border-white/10 p-3">
         <div className={clsx(
-          'flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors',
+          'flex items-center gap-3 px-2 py-2 rounded-lg',
           sidebarCollapsed && 'justify-center'
         )}>
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">
-            TA
+          <div
+            aria-hidden="true"
+            className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold"
+          >
+            {initials}
           </div>
           {!sidebarCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">Tom Admin</p>
+              <p className="text-sm font-medium text-white truncate">{displayName}</p>
               <p className="text-xs text-[#8892a4] truncate">{currentUserRole}</p>
             </div>
           )}
           {!sidebarCollapsed && (
-            <LogOut size={15} className="text-[#8892a4] hover:text-white flex-shrink-0" />
+            <button
+              onClick={logout}
+              aria-label="Sign out"
+              className="text-[#8892a4] hover:text-white transition-colors flex-shrink-0 p-1 rounded"
+            >
+              <LogOut size={15} aria-hidden="true" />
+            </button>
           )}
         </div>
       </div>
@@ -119,10 +139,13 @@ export function Sidebar() {
       {/* Collapse button */}
       <button
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+        aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        aria-expanded={!sidebarCollapsed}
         className="absolute -right-3 top-6 w-6 h-6 bg-[#1a2035] border border-white/20 rounded-full flex items-center justify-center text-[#8892a4] hover:text-white transition-colors cursor-pointer z-10"
-        title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
-        {sidebarCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+        {sidebarCollapsed
+          ? <ChevronRight size={12} aria-hidden="true" />
+          : <ChevronLeft size={12} aria-hidden="true" />}
       </button>
     </aside>
   );
