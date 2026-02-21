@@ -126,10 +126,10 @@ export function PersonDetail() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-xl font-bold text-gray-900">{person.name}</h1>
+              <h1 className="text-xl font-semibold text-gray-900 tracking-tight">{person.name}</h1>
               <StatusBadge status={person.status} size="md" />
             </div>
-            <div className="flex items-center gap-4 mt-1 flex-wrap text-sm text-gray-500">
+            <div className="flex items-center gap-4 mt-1 flex-wrap text-[13px] text-gray-500">
               <span>{person.title}</span>
               <span>·</span>
               <span>{person.department}</span>

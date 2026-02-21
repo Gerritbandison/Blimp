@@ -42,20 +42,20 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1a2035] to-[#0f1628] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#0f172a] to-[#1e293b] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
+          <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
             <Server size={20} className="text-white" />
           </div>
-          <span className="text-2xl font-bold text-white tracking-tight">Blimp</span>
+          <span className="text-2xl font-semibold text-white tracking-tight">Blimp</span>
         </div>
 
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h1 className="text-xl font-semibold text-gray-900 mb-1">Sign in to Blimp</h1>
-          <p className="text-sm text-gray-500 mb-6">Enter your credentials to access the platform.</p>
+          <h1 className="text-xl font-semibold text-gray-900 tracking-tight mb-1">Sign in to Blimp</h1>
+          <p className="text-[13px] text-gray-500 mb-6">Enter your credentials to access the platform.</p>
 
           {error && (
             <div role="alert" className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-5">
@@ -66,7 +66,7 @@ export function Login() {
 
           <form onSubmit={(e) => { void handleSubmit(e); }} noValidate className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label htmlFor="email" className="block text-[13px] font-medium text-gray-700 mb-1.5">
                 Email address
               </label>
               <input
@@ -77,12 +77,12 @@ export function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@company.com"
-                className="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all duration-150"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label htmlFor="password" className="block text-[13px] font-medium text-gray-700 mb-1.5">
                 Password
               </label>
               <div className="relative">
@@ -94,7 +94,7 @@ export function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 pr-10 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                  className="w-full px-3.5 py-2.5 pr-10 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all duration-150"
                 />
                 <button
                   type="button"
@@ -110,7 +110,7 @@ export function Login() {
             <button
               type="submit"
               disabled={loading || !email || !password}
-              className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 mt-2"
+              className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 mt-2 shadow-sm hover:shadow-md"
             >
               {loading ? 'Signing in…' : 'Sign in'}
             </button>

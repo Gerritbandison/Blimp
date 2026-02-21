@@ -23,7 +23,6 @@ export function Modal({ open, onClose, title, children, size = 'md', footer }: M
     return () => { document.body.style.overflow = ''; };
   }, [open]);
 
-  // Escape key closes modal
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
@@ -39,10 +38,10 @@ export function Modal({ open, onClose, title, children, size = 'md', footer }: M
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop — decorative, click closes dialog */}
+      {/* Backdrop */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-gray-900/30 backdrop-blur-[2px]"
         onClick={onClose}
       />
 
@@ -52,17 +51,17 @@ export function Modal({ open, onClose, title, children, size = 'md', footer }: M
         aria-modal="true"
         aria-labelledby={titleId}
         className={clsx(
-          'relative bg-white rounded-2xl shadow-2xl w-full flex flex-col max-h-[85vh]',
+          'relative bg-white rounded-2xl shadow-xl w-full flex flex-col max-h-[85vh] border border-gray-200/50',
           sizeMap[size]
         )}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-          <h2 id={titleId} className="text-lg font-semibold text-gray-900">{title}</h2>
+          <h2 id={titleId} className="text-base font-semibold text-gray-900">{title}</h2>
           <button
             onClick={onClose}
             aria-label="Close dialog"
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors duration-100"
           >
             <X size={16} />
           </button>
@@ -75,7 +74,7 @@ export function Modal({ open, onClose, title, children, size = 'md', footer }: M
 
         {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0 bg-gray-50/50 rounded-b-2xl">
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0 bg-gray-50/40 rounded-b-2xl">
             {footer}
           </div>
         )}

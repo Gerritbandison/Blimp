@@ -61,8 +61,8 @@ export function Reports() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Analytics and insights across your IT estate</p>
+          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Reports</h1>
+          <p className="text-[13px] text-gray-500 mt-0.5">Analytics and insights across your IT estate</p>
         </div>
         <button className="btn-secondary" onClick={() => {}}>
           <Download size={15} /> Export All
@@ -98,7 +98,7 @@ export function Reports() {
             ].map(({ label, value, sub }) => (
               <div key={label} className="card p-5">
                 <p className="text-xs text-gray-500">{label}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+                <p className="text-2xl font-semibold text-gray-900 mt-1 tracking-tight">{value}</p>
                 <p className="text-xs text-gray-400 mt-0.5">{sub}</p>
               </div>
             ))}
@@ -109,10 +109,10 @@ export function Reports() {
               <h3 className="text-sm font-semibold text-gray-900 mb-4">Monthly IT Spend (7 months)</h3>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={spendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v: unknown) => [`$${Number(v ?? 0).toLocaleString()}`, '']} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                  <Tooltip formatter={(v: unknown) => [`$${Number(v ?? 0).toLocaleString()}`, '']} contentStyle={{ borderRadius: 10, border: '1px solid #e5e7eb', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Bar dataKey="hardware" fill="#3b82f6" name="Hardware" stackId="a" radius={[0, 0, 0, 0]} />
                   <Bar dataKey="software" fill="#8b5cf6" name="Software" stackId="a" radius={[4, 4, 0, 0]} />
@@ -124,10 +124,10 @@ export function Reports() {
               <h3 className="text-sm font-semibold text-gray-900 mb-4">Spend by Department</h3>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={departmentSpendData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
                   <YAxis type="category" dataKey="department" width={80} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <Tooltip formatter={(v: unknown) => [`$${Number(v ?? 0).toLocaleString()}`, '']} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                  <Tooltip formatter={(v: unknown) => [`$${Number(v ?? 0).toLocaleString()}`, '']} contentStyle={{ borderRadius: 10, border: '1px solid #e5e7eb', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }} />
                   <Bar dataKey="total" fill="#3b82f6" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -137,10 +137,10 @@ export function Reports() {
               <h3 className="text-sm font-semibold text-gray-900 mb-4">Spend by Category</h3>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={categorySpendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="category" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v: unknown) => [`$${Number(v ?? 0).toLocaleString()}`, 'Spend']} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                  <Tooltip formatter={(v: unknown) => [`$${Number(v ?? 0).toLocaleString()}`, 'Spend']} contentStyle={{ borderRadius: 10, border: '1px solid #e5e7eb', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }} />
                   <Bar dataKey="amount" fill="#10b981" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -150,10 +150,10 @@ export function Reports() {
               <h3 className="text-sm font-semibold text-gray-900 mb-4">Spend Trend</h3>
               <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={spendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v: unknown) => [`$${Number(v ?? 0).toLocaleString()}`, '']} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                  <Tooltip formatter={(v: unknown) => [`$${Number(v ?? 0).toLocaleString()}`, '']} contentStyle={{ borderRadius: 10, border: '1px solid #e5e7eb', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }} />
                   <Line type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 4 }} name="Total Spend" />
                 </LineChart>
               </ResponsiveContainer>
@@ -174,7 +174,7 @@ export function Reports() {
             ].map(({ label, value }) => (
               <div key={label} className="card p-5">
                 <p className="text-xs text-gray-500">{label}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+                <p className="text-2xl font-semibold text-gray-900 mt-1 tracking-tight">{value}</p>
               </div>
             ))}
           </div>
@@ -187,7 +187,7 @@ export function Reports() {
                   <Pie data={assetStatusData} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({ name, value }) => `${name}: ${value}%`} labelLine={false}>
                     {assetStatusData.map((e, i) => <Cell key={i} fill={e.color} />)}
                   </Pie>
-                  <Tooltip formatter={(v) => [v, 'Assets']} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                  <Tooltip formatter={(v) => [v, 'Assets']} contentStyle={{ borderRadius: 10, border: '1px solid #e5e7eb', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -256,7 +256,7 @@ export function Reports() {
             ].map(({ label, value }) => (
               <div key={label} className="card p-5">
                 <p className="text-xs text-gray-500">{label}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+                <p className="text-2xl font-semibold text-gray-900 mt-1 tracking-tight">{value}</p>
               </div>
             ))}
           </div>
@@ -314,10 +314,10 @@ export function Reports() {
             <h3 className="text-sm font-semibold text-gray-900 mb-4">IT Cost per Employee</h3>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={employeeCostData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
-                <Tooltip formatter={(v: unknown) => [`$${Number(v ?? 0).toLocaleString()}`, 'Annual IT Cost']} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                <Tooltip formatter={(v: unknown) => [`$${Number(v ?? 0).toLocaleString()}`, 'Annual IT Cost']} contentStyle={{ borderRadius: 10, border: '1px solid #e5e7eb', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }} />
                 <Bar dataKey="cost" fill="#3b82f6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -327,10 +327,10 @@ export function Reports() {
             <h3 className="text-sm font-semibold text-gray-900 mb-4">Cost by Department</h3>
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={departmentSpendData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
                 <YAxis type="category" dataKey="department" width={80} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v: unknown) => [`$${Number(v ?? 0).toLocaleString()}`, '']} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                <Tooltip formatter={(v: unknown) => [`$${Number(v ?? 0).toLocaleString()}`, '']} contentStyle={{ borderRadius: 10, border: '1px solid #e5e7eb', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="hardware" name="Hardware" fill="#3b82f6" stackId="a" />
                 <Bar dataKey="software" name="Software" fill="#8b5cf6" stackId="a" radius={[0, 4, 4, 0]} />

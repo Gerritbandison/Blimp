@@ -146,10 +146,10 @@ export function Dashboard() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Welcome back, Tom. Here's your IT overview.</p>
+          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Dashboard</h1>
+          <p className="text-[13px] text-gray-500 mt-0.5">Welcome back. Here's your IT overview.</p>
         </div>
-        <button className="btn-secondary text-sm" onClick={() => window.location.reload()}>
+        <button className="btn-secondary" onClick={() => window.location.reload()}>
           <RefreshCw size={14} /> Refresh
         </button>
       </div>
@@ -173,10 +173,10 @@ export function Dashboard() {
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={spendOverTime}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `$${(v/1000).toFixed(0)}k`} />
-              <Tooltip formatter={(value: unknown) => [`$${Number(value || 0).toLocaleString()}`, '']} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
+              <Tooltip formatter={(value: unknown) => [`$${Number(value || 0).toLocaleString()}`, '']} contentStyle={{ borderRadius: 10, border: '1px solid #e5e7eb', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Line type="monotone" dataKey="hardware" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} name="Hardware" />
               <Line type="monotone" dataKey="software" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3 }} name="Software" />
@@ -199,7 +199,7 @@ export function Dashboard() {
                   <Pie data={assetStatusData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} labelLine={false} label={renderCustomizedLabel} dataKey="value">
                     {assetStatusData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
                   </Pie>
-                  <Tooltip formatter={(value: unknown) => [String(typeof value === 'number' || typeof value === 'string' ? value : 0), 'Assets']} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                  <Tooltip formatter={(value: unknown) => [String(typeof value === 'number' || typeof value === 'string' ? value : 0), 'Assets']} contentStyle={{ borderRadius: 10, border: '1px solid #e5e7eb', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="grid grid-cols-2 gap-1.5 mt-2">
@@ -225,10 +225,10 @@ export function Dashboard() {
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={categorySpendData} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
               <XAxis type="number" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `$${(v/1000).toFixed(0)}k`} />
               <YAxis type="category" dataKey="category" width={100} tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
-              <Tooltip formatter={(value: unknown) => [`$${Number(value || 0).toLocaleString()}`, 'Spend']} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
+              <Tooltip formatter={(value: unknown) => [`$${Number(value || 0).toLocaleString()}`, 'Spend']} contentStyle={{ borderRadius: 10, border: '1px solid #e5e7eb', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }} />
               <Bar dataKey="amount" fill="#3b82f6" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>

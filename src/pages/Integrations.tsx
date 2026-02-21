@@ -542,8 +542,8 @@ export function Integrations() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Integrations</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Integrations</h1>
+          <p className="text-[13px] text-gray-500 mt-0.5">
             {connected.length} connected · {integrations.length - connected.length} available
           </p>
         </div>
@@ -570,7 +570,7 @@ export function Integrations() {
             </div>
             <div>
               <p className="text-xs text-gray-500">{label}</p>
-              <p className="text-2xl font-bold text-gray-900">{value}</p>
+              <p className="text-2xl font-semibold text-gray-900 tracking-tight">{value}</p>
             </div>
           </div>
         ))}

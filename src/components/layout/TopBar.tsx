@@ -84,19 +84,19 @@ export function TopBar() {
   const ThemeIcon = theme === 'dark' ? Moon : theme === 'system' ? Laptop : Sun;
 
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-4 flex-shrink-0 z-20">
+    <header className="bg-white border-b border-gray-200/80 px-6 py-2.5 flex items-center gap-4 flex-shrink-0 z-20">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-sm flex-1">
+      <div className="flex items-center gap-1.5 text-[13px] flex-1">
         {crumbs.map((crumb, i) => (
           <span key={crumb.path} className="flex items-center gap-1.5">
-            {i > 0 && <span className="text-gray-300">/</span>}
+            {i > 0 && <span className="text-gray-300/80">/</span>}
             <button
               onClick={() => { void navigate(crumb.path); }}
               className={clsx(
-                'transition-colors',
+                'transition-colors duration-100',
                 i === crumbs.length - 1
                   ? 'text-gray-900 font-medium cursor-default'
-                  : 'text-gray-500 hover:text-gray-900 cursor-pointer'
+                  : 'text-gray-400 hover:text-gray-700 cursor-pointer'
               )}
             >
               {crumb.label}
@@ -115,7 +115,7 @@ export function TopBar() {
           value={globalSearch}
           onChange={(e) => { setGlobalSearch(e.target.value); setShowSearchResults(true); }}
           onFocus={() => setShowSearchResults(true)}
-          className="w-full pl-9 pr-16 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
+          className="w-full pl-9 pr-16 py-2 text-[13px] border border-gray-200/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-gray-50/80 transition-all duration-150"
         />
         {globalSearch ? (
           <button onClick={() => { setGlobalSearch(''); setShowSearchResults(false); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -228,9 +228,9 @@ export function TopBar() {
           aria-label="Toggle theme"
           aria-haspopup="true"
           aria-expanded={showThemeMenu}
-          className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-900"
+          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors duration-100 text-gray-500 hover:text-gray-700"
         >
-          <ThemeIcon size={18} />
+          <ThemeIcon size={16} />
         </button>
         {showThemeMenu && (
           <div className="absolute right-0 top-full mt-2 w-36 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden py-1">
@@ -263,21 +263,21 @@ export function TopBar() {
           aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
           aria-haspopup="true"
           aria-expanded={showNotifications}
-          className="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-900"
+          className="relative w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors duration-100 text-gray-500 hover:text-gray-700"
         >
-          <Bell size={18} />
+          <Bell size={16} />
           {unreadCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 rounded-full text-white text-[9px] flex items-center justify-center font-bold">
+            <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[9px] flex items-center justify-center font-bold">
               {unreadCount}
             </span>
           )}
         </button>
 
         {showNotifications && (
-          <div className="absolute right-0 top-full mt-2 w-96 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
+          <div className="absolute right-0 top-full mt-1.5 w-96 bg-white border border-gray-200/80 rounded-xl shadow-lg z-50 overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
+                <h3 className="text-[13px] font-semibold text-gray-900">Notifications</h3>
                 <p className="text-xs text-gray-500">{unreadCount} unread</p>
               </div>
               {unreadCount > 0 && (

@@ -172,8 +172,8 @@ export function AppList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Apps & Licenses</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{apps.length} apps · ${totalMonthlyCost.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/mo</p>
+          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Apps & Licenses</h1>
+          <p className="text-[13px] text-gray-500 mt-0.5">{apps.length} apps · ${totalMonthlyCost.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/mo</p>
         </div>
         <div className="flex items-center gap-2">
           <button className="btn-secondary" onClick={() => {
@@ -259,7 +259,7 @@ export function AppList() {
                 placeholder="Search apps..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-8 pr-3 py-2 text-[13px] border border-gray-200/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all duration-150"
               />
             </div>
 
@@ -270,8 +270,8 @@ export function AppList() {
                   key={s}
                   onClick={() => setStatusFilter(s)}
                   className={clsx(
-                    'px-3 py-1 rounded-full text-xs font-medium transition-colors border',
-                    statusFilter === s ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                    'px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 border',
+                    statusFilter === s ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-gray-600 border-gray-200/80 hover:border-gray-300 hover:shadow-sm'
                   )}
                 >
                   {s || 'All'}

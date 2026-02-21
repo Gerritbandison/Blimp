@@ -183,18 +183,18 @@ export function AssetDetail() {
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-xl font-bold text-gray-900 truncate">{asset.name}</h1>
+              <h1 className="text-xl font-semibold text-gray-900 truncate tracking-tight">{asset.name}</h1>
               <StatusBadge status={asset.status} size="md" />
               <span className="text-sm font-mono text-gray-400">{asset.tag}</span>
             </div>
             <div className="flex items-center gap-4 mt-1 flex-wrap">
               {asset.assignedTo && (
-                <span className="flex items-center gap-1.5 text-sm text-gray-500"><User size={13} /> {asset.assignedTo}</span>
+                <span className="flex items-center gap-1.5 text-[13px] text-gray-500"><User size={13} /> {asset.assignedTo}</span>
               )}
               {asset.location && (
-                <span className="flex items-center gap-1.5 text-sm text-gray-500"><MapPin size={13} /> {asset.location}</span>
+                <span className="flex items-center gap-1.5 text-[13px] text-gray-500"><MapPin size={13} /> {asset.location}</span>
               )}
-              <span className="flex items-center gap-1.5 text-sm text-gray-500"><Calendar size={13} /> Purchased {format(new Date(asset.purchaseDate), 'MMM d, yyyy')}</span>
+              <span className="flex items-center gap-1.5 text-[13px] text-gray-500"><Calendar size={13} /> Purchased {format(new Date(asset.purchaseDate), 'MMM d, yyyy')}</span>
             </div>
           </div>
           <div className="flex items-center gap-2">

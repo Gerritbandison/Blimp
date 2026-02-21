@@ -136,7 +136,7 @@ export function Settings() {
         {/* ── Company Settings (persisted) ── */}
         {activeSection === 'company' && (
           <div className="max-w-2xl space-y-6">
-            <div><h2 className="text-lg font-bold text-gray-900">Company Settings</h2><p className="text-sm text-gray-500">Configure your organization details</p></div>
+            <div><h2 className="text-lg font-semibold text-gray-900 tracking-tight">Company Settings</h2><p className="text-[13px] text-gray-500">Configure your organization details</p></div>
             <div className="card p-5 space-y-4">
               {[
                 { label: 'Company Name', key: 'name', type: 'text' },
@@ -165,7 +165,7 @@ export function Settings() {
         {activeSection === 'users' && (
           <div className="max-w-4xl space-y-6">
             <div className="flex items-center justify-between">
-              <div><h2 className="text-lg font-bold text-gray-900">User Management</h2><p className="text-sm text-gray-500">{orgUsers.length} members · manage access and roles</p></div>
+              <div><h2 className="text-lg font-semibold text-gray-900 tracking-tight">User Management</h2><p className="text-[13px] text-gray-500">{orgUsers.length} members · manage access and roles</p></div>
               <button className="btn-primary" onClick={() => setShowInviteModal(true)}><Plus size={15} /> Invite User</button>
             </div>
 
@@ -232,7 +232,7 @@ export function Settings() {
         {activeSection === 'fields' && (
           <div className="max-w-2xl space-y-6">
             <div className="flex items-center justify-between">
-              <div><h2 className="text-lg font-bold text-gray-900">Custom Fields</h2><p className="text-sm text-gray-500">Add custom data fields to assets, apps, and people</p></div>
+              <div><h2 className="text-lg font-semibold text-gray-900 tracking-tight">Custom Fields</h2><p className="text-[13px] text-gray-500">Add custom data fields to assets, apps, and people</p></div>
               <button className="btn-primary" onClick={() => openFieldModal()}><Plus size={15} /> Add Field</button>
             </div>
             {([
@@ -279,7 +279,7 @@ export function Settings() {
         {/* ── Notifications (persisted) ── */}
         {activeSection === 'notifications' && (
           <div className="max-w-2xl space-y-6">
-            <div><h2 className="text-lg font-bold text-gray-900">Notification Settings</h2><p className="text-sm text-gray-500">Configure when and how you receive alerts</p></div>
+            <div><h2 className="text-lg font-semibold text-gray-900 tracking-tight">Notification Settings</h2><p className="text-[13px] text-gray-500">Configure when and how you receive alerts</p></div>
             <div className="card p-5 space-y-5">
               {[
                 { key: 'renewalReminder', label: 'License Renewal Reminders', desc: 'Get notified before license renewals', hasDays: true, daysKey: 'renewalDays' },
@@ -320,7 +320,7 @@ export function Settings() {
         {/* ── Appearance ── */}
         {activeSection === 'appearance' && (
           <div className="max-w-2xl space-y-6">
-            <div><h2 className="text-lg font-bold text-gray-900">Appearance</h2><p className="text-sm text-gray-500">Customize the look and feel of your workspace</p></div>
+            <div><h2 className="text-lg font-semibold text-gray-900 tracking-tight">Appearance</h2><p className="text-[13px] text-gray-500">Customize the look and feel of your workspace</p></div>
             <div className="card p-5 space-y-5">
               <div>
                 <h3 className="text-sm font-semibold text-gray-900 mb-3">Theme</h3>
@@ -368,7 +368,7 @@ export function Settings() {
         {/* ── Asset Statuses ── */}
         {activeSection === 'statuses' && (
           <div className="max-w-2xl space-y-6">
-            <div><h2 className="text-lg font-bold text-gray-900">Asset Statuses</h2><p className="text-sm text-gray-500">Customize the lifecycle stages for your assets</p></div>
+            <div><h2 className="text-lg font-semibold text-gray-900 tracking-tight">Asset Statuses</h2><p className="text-[13px] text-gray-500">Customize the lifecycle stages for your assets</p></div>
             <div className="card p-5 space-y-2">
               {[
                 { name: 'Deployed', color: '#22c55e', description: 'Asset is actively in use' },
@@ -393,7 +393,7 @@ export function Settings() {
         {/* ── API Access ── */}
         {activeSection === 'api' && (
           <div className="max-w-2xl space-y-6">
-            <div><h2 className="text-lg font-bold text-gray-900">API Access</h2><p className="text-sm text-gray-500">Manage API keys and webhook endpoints</p></div>
+            <div><h2 className="text-lg font-semibold text-gray-900 tracking-tight">API Access</h2><p className="text-[13px] text-gray-500">Manage API keys and webhook endpoints</p></div>
             <div className="card p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-gray-900">API Keys</h3>
@@ -439,7 +439,7 @@ export function Settings() {
         {/* ── Billing ── */}
         {activeSection === 'billing' && (
           <div className="max-w-2xl space-y-6">
-            <div><h2 className="text-lg font-bold text-gray-900">Billing</h2><p className="text-sm text-gray-500">Manage your subscription and invoices</p></div>
+            <div><h2 className="text-lg font-semibold text-gray-900 tracking-tight">Billing</h2><p className="text-[13px] text-gray-500">Manage your subscription and invoices</p></div>
             <div className="card p-5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
               <div className="flex items-center justify-between">
                 <div><p className="text-sm font-medium opacity-80">Current Plan</p><p className="text-2xl font-bold mt-1">Business</p><p className="text-sm opacity-70 mt-0.5">Up to 500 assets · 50 users · All integrations</p></div>

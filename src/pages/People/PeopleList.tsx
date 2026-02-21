@@ -112,8 +112,8 @@ export function PeopleList() {
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">People</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">People</h1>
+          <p className="text-[13px] text-gray-500 mt-0.5">
             {people.filter(p => p.status === 'Active').length} active · {onboarding.length} onboarding · {offboarding.length} offboarding
           </p>
         </div>
@@ -150,8 +150,8 @@ export function PeopleList() {
             key={s}
             onClick={() => setStatusFilter(s)}
             className={clsx(
-              'px-3 py-1 rounded-full text-xs font-medium transition-colors border',
-              statusFilter === s ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+              'px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 border',
+              statusFilter === s ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-gray-600 border-gray-200/80 hover:border-gray-300 hover:shadow-sm'
             )}
           >
             {s || 'All'} {s && `(${people.filter(p => p.status === s).length})`}
@@ -168,7 +168,7 @@ export function PeopleList() {
               placeholder="Search people..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-8 pr-3 py-2 text-[13px] border border-gray-200/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all duration-150"
             />
           </div>
 

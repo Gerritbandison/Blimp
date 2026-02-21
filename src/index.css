@@ -2,39 +2,100 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Base layer ────────────────────────────────────────────────────────────── */
+
 @layer base {
-  * {
+  *,
+  ::before,
+  ::after {
     box-sizing: border-box;
   }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    @apply font-sans text-gray-900 bg-[#f8f9fb] antialiased;
     margin: 0;
   }
+
   .dark body {
     @apply bg-slate-900 text-slate-100;
   }
+
+  /* Selection highlight */
+  ::selection {
+    @apply bg-blue-100 text-blue-900;
+  }
 }
 
+/* ── Component layer ───────────────────────────────────────────────────────── */
+
 @layer components {
-  .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150 flex items-center gap-2 cursor-pointer;
-  }
-  .btn-secondary {
-    @apply bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150 flex items-center gap-2 cursor-pointer;
-  }
-  .btn-ghost {
-    @apply hover:bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150 flex items-center gap-2 cursor-pointer;
-  }
+  /* ── Cards ────────────────────────────────────────────────────────────────── */
   .card {
-    @apply bg-white rounded-xl border border-gray-200;
-    box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1);
+    @apply bg-white rounded-xl border border-gray-200/80;
+    box-shadow: 0 1px 3px 0 rgba(0,0,0,0.04), 0 1px 2px -1px rgba(0,0,0,0.02);
   }
+
+  /* ── Buttons ──────────────────────────────────────────────────────────────── */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium
+           text-white bg-blue-600 rounded-lg
+           hover:bg-blue-700 active:bg-blue-800
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-all duration-150 ease-in-out cursor-pointer shadow-sm;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-sm font-medium
+           text-gray-700 bg-white border border-gray-200 rounded-lg
+           hover:bg-gray-50 hover:border-gray-300 active:bg-gray-100
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-all duration-150 ease-in-out cursor-pointer;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium
+           text-gray-500 rounded-lg
+           hover:bg-gray-100 hover:text-gray-700
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+           transition-all duration-150 ease-in-out cursor-pointer;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium
+           text-white bg-red-600 rounded-lg
+           hover:bg-red-700 active:bg-red-800
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2
+           transition-all duration-150 ease-in-out cursor-pointer;
+  }
+
+  /* ── Form elements ────────────────────────────────────────────────────────── */
   .input {
-    @apply w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply w-full px-3 py-2 text-sm text-gray-900 bg-white
+           border border-gray-200 rounded-lg
+           placeholder:text-gray-400
+           focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400
+           transition-all duration-150 ease-in-out;
   }
+
   .select {
-    @apply w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white;
+    @apply w-full px-3 py-2 text-sm text-gray-900 bg-white
+           border border-gray-200 rounded-lg
+           focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400
+           transition-all duration-150 ease-in-out;
+  }
+
+  .input:disabled,
+  .select:disabled {
+    @apply bg-gray-50 text-gray-500 cursor-not-allowed;
   }
 
   /* Dark mode component overrides */
@@ -56,7 +117,8 @@
   }
 }
 
-/* Custom scrollbar */
+/* ── Custom scrollbar ──────────────────────────────────────────────────────── */
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -65,11 +127,11 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: #e2e8f0;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: #cbd5e1;
 }
 .dark ::-webkit-scrollbar-thumb {
   background: #475569;
@@ -78,25 +140,24 @@
   background: #64748b;
 }
 
-/* Skeleton loader animation */
+/* ── Skeleton loader ───────────────────────────────────────────────────────── */
+
 @keyframes shimmer {
   0% { background-position: -1000px 0; }
   100% { background-position: 1000px 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
   background-size: 1000px 100%;
   animation: shimmer 2s infinite;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 .dark .skeleton {
   background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%);
   background-size: 1000px 100%;
 }
 
-/* ─── Dark mode overrides for inline Tailwind utilities ─────────────────── */
-/* These remap common gray utilities used throughout pages/components so     */
-/* dark mode works without editing every single file.                        */
+/* ── Dark mode overrides for inline Tailwind utilities ─────────────────── */
 
 /* Backgrounds */
 html.dark .bg-white { background-color: #1e293b; }
@@ -137,9 +198,7 @@ html.dark .hover\:border-gray-300:hover { border-color: #475569; }
 html.dark .divide-gray-50 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(30,41,59,0.5); }
 html.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: #1e293b; }
 
-/* Focus ring stays blue - no override needed */
-
-/* Status-colored backgrounds in dark mode - soften them */
+/* Status-colored backgrounds in dark mode */
 html.dark .bg-blue-50 { background-color: rgba(59,130,246,0.1); }
 html.dark .bg-green-50 { background-color: rgba(34,197,94,0.1); }
 html.dark .bg-red-50 { background-color: rgba(239,68,68,0.1); }

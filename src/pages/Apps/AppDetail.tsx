@@ -132,7 +132,7 @@ export function AppDetail() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-xl font-bold text-gray-900">{app.name}</h1>
+              <h1 className="text-xl font-semibold text-gray-900 tracking-tight">{app.name}</h1>
               <StatusBadge status={app.status} size="md" />
               {app.url && (
                 <a href="#" className="text-sm text-blue-600 flex items-center gap-1 hover:underline">
@@ -140,7 +140,7 @@ export function AppDetail() {
                 </a>
               )}
             </div>
-            <div className="flex items-center gap-4 mt-1 flex-wrap text-sm text-gray-500">
+            <div className="flex items-center gap-4 mt-1 flex-wrap text-[13px] text-gray-500">
               <span className="flex items-center gap-1"><Users size={13} /> {app.assignedLicenses}/{app.totalLicenses} licenses used</span>
               <span className="flex items-center gap-1"><DollarSign size={13} /> ${monthlyCost.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/mo</span>
               <span className="flex items-center gap-1"><Calendar size={13} /> Renews {format(new Date(app.renewalDate), 'MMM d, yyyy')} ({daysToRenewal}d)</span>

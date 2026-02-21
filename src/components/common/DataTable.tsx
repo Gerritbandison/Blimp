@@ -81,7 +81,7 @@ export function DataTable<T extends { id: string }>({
           <thead>
             <tr className="border-b border-gray-100">
               {visibleColumns.map((col) => (
-                <th key={String(col.key)} className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                <th key={String(col.key)} className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                   {col.label}
                 </th>
               ))}
@@ -91,7 +91,7 @@ export function DataTable<T extends { id: string }>({
             {Array.from({ length: 5 }).map((_, i) => (
               <tr key={i} className="border-b border-gray-50">
                 {visibleColumns.map((col) => (
-                  <td key={String(col.key)} className="py-3 px-4">
+                  <td key={String(col.key)} className="py-3.5 px-4">
                     <div className="skeleton h-4 rounded" style={{ width: `${60 + Math.random() * 40}%` }} />
                   </td>
                 ))}
@@ -107,14 +107,14 @@ export function DataTable<T extends { id: string }>({
     <div className={clsx('overflow-hidden', className)}>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50/80 border-b border-gray-100">
-            <tr>
+          <thead>
+            <tr className="border-b border-gray-100 bg-gray-50/60">
               {selectable && (
                 <th className="w-10 py-3 px-4" scope="col">
                   <input
                     type="checkbox"
                     aria-label="Select all rows on this page"
-                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     checked={paged.length > 0 && paged.every((r) => selectedIds.includes(r.id))}
                     onChange={toggleAll}
                   />
@@ -134,8 +134,8 @@ export function DataTable<T extends { id: string }>({
                     aria-sort={ariaSortValue}
                     tabIndex={isSortable ? 0 : undefined}
                     className={clsx(
-                      'text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap',
-                      isSortable && 'cursor-pointer hover:text-gray-900 select-none',
+                      'text-left py-3 px-4 text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap',
+                      isSortable && 'cursor-pointer hover:text-gray-700 select-none',
                       col.width && `w-${col.width}`
                     )}
                     onClick={() => isSortable && handleSort(String(col.key))}
@@ -149,7 +149,7 @@ export function DataTable<T extends { id: string }>({
                     <span className="flex items-center gap-1">
                       {col.label}
                       {isSortable && (
-                        <span className="flex flex-col" aria-hidden="true">
+                        <span className="flex flex-col -space-y-0.5" aria-hidden="true">
                           <ChevronUp
                             size={10}
                             className={clsx(isActive && sortDir === 'asc' ? 'text-blue-600' : 'text-gray-300')}
@@ -166,7 +166,7 @@ export function DataTable<T extends { id: string }>({
               })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-gray-100/80">
             {paged.length === 0 ? (
               <tr>
                 <td
@@ -186,7 +186,7 @@ export function DataTable<T extends { id: string }>({
                 <tr
                   key={row.id}
                   className={clsx(
-                    'group transition-colors',
+                    'group transition-colors duration-100',
                     onRowClick && 'cursor-pointer hover:bg-blue-50/40',
                     selectedIds.includes(row.id) && 'bg-blue-50/50'
                   )}
@@ -197,7 +197,7 @@ export function DataTable<T extends { id: string }>({
                       <input
                         type="checkbox"
                         aria-label={`Select row`}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         checked={selectedIds.includes(row.id)}
                         onChange={() => toggleRow(row.id)}
                       />
@@ -219,18 +219,18 @@ export function DataTable<T extends { id: string }>({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-white">
-          <p className="text-sm text-gray-500">
-            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, sorted.length)} of {sorted.length}
+        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+          <p className="text-[13px] text-gray-500">
+            Showing <span className="font-medium text-gray-700">{(page - 1) * pageSize + 1}</span>–<span className="font-medium text-gray-700">{Math.min(page * pageSize, sorted.length)}</span> of <span className="font-medium text-gray-700">{sorted.length}</span>
           </p>
           <nav aria-label="Table pagination" className="flex items-center gap-1">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
               aria-label="Previous page"
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors duration-100"
             >
-              <ChevronLeft size={14} />
+              <ChevronLeft size={15} />
             </button>
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
               const p = page <= 3 ? i + 1 : page + i - 2;
@@ -242,10 +242,10 @@ export function DataTable<T extends { id: string }>({
                   aria-label={`Page ${p}`}
                   aria-current={p === page ? 'page' : undefined}
                   className={clsx(
-                    'w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors',
+                    'w-8 h-8 flex items-center justify-center rounded-lg text-[13px] font-medium transition-colors duration-100',
                     p === page
-                      ? 'bg-blue-600 text-white'
-                      : 'border border-gray-200 text-gray-700 hover:bg-gray-50'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-100'
                   )}
                 >
                   {p}
@@ -256,9 +256,9 @@ export function DataTable<T extends { id: string }>({
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
               aria-label="Next page"
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors duration-100"
             >
-              <ChevronRight size={14} />
+              <ChevronRight size={15} />
             </button>
           </nav>
         </div>

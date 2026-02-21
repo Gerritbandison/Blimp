@@ -1,152 +1,117 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Monitor, AppWindow, Users, BarChart3,
-  Plug, Settings, ChevronLeft, ChevronRight, LogOut,
-  Server, Shield
+  LayoutDashboard, Monitor, Users, AppWindow, BarChart3,
+  Settings, Link2, ClipboardList, ChevronLeft, ChevronRight,
+  Server, LogOut,
 } from 'lucide-react';
+import { clsx } from 'clsx';
 import { useStore } from '../../store/useStore';
 import { useAuth } from '../../auth/useAuth';
-import { clsx } from 'clsx';
+import { useState } from 'react';
 
-const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/assets', icon: Monitor, label: 'Assets' },
-  { to: '/apps', icon: AppWindow, label: 'Apps' },
-  { to: '/people', icon: Users, label: 'People' },
-  { to: '/reports', icon: BarChart3, label: 'Reports' },
-  { to: '/integrations', icon: Plug, label: 'Integrations' },
-  { to: '/audit-log', icon: Shield, label: 'Audit Log' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
+const NAV_ITEMS = [
+  { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
+  { label: 'Assets', icon: Monitor, path: '/assets' },
+  { label: 'People', icon: Users, path: '/people' },
+  { label: 'Apps', icon: AppWindow, path: '/apps' },
+  { label: 'Reports', icon: BarChart3, path: '/reports' },
+  { label: 'Integrations', icon: Link2, path: '/integrations' },
+  { label: 'Audit Log', icon: ClipboardList, path: '/audit-log' },
+  { label: 'Settings', icon: Settings, path: '/settings' },
 ];
 
 export function Sidebar() {
-  const { sidebarCollapsed, setSidebarCollapsed, currentUserRole } = useStore();
-  const { user, logout } = useAuth();
-  const location = useLocation();
+  const navigate = useNavigate();
+  const { currentUserName, currentUserRole } = useStore();
+  const { logout } = useAuth();
+  const [collapsed, setCollapsed] = useState(false);
 
-  // RBAC: filter nav items based on role
-  const filteredNavItems = navItems.filter(({ to }) => {
-    if (currentUserRole === 'Read Only') {
-      return !['/settings', '/integrations'].includes(to);
-    }
-    if (currentUserRole === 'Finance') {
-      return !['/integrations'].includes(to);
-    }
-    return true;
-  });
-
-  const displayName = user?.name ?? 'User';
-  const initials = displayName
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  function handleLogout() {
+    logout();
+    void navigate('/login');
+  }
 
   return (
     <aside
       className={clsx(
-        'flex flex-col h-screen bg-[#1a2035] text-white transition-all duration-300 flex-shrink-0 relative',
-        sidebarCollapsed ? 'w-16' : 'w-60'
+        'flex flex-col h-full bg-[#0f172a] transition-all duration-200 ease-in-out flex-shrink-0',
+        collapsed ? 'w-[68px]' : 'w-[240px]'
       )}
     >
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10">
+      <div className="flex items-center gap-3 px-5 h-16 flex-shrink-0 border-b border-white/[0.06]">
         <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
           <Server size={16} className="text-white" />
         </div>
-        {!sidebarCollapsed && (
-          <span className="font-bold text-lg text-white tracking-tight">Blimp</span>
-        )}
+        {!collapsed && <span className="text-[15px] font-semibold text-white tracking-tight">Blimp</span>}
       </div>
 
-      {/* Nav */}
-      <nav aria-label="Main navigation" className="flex-1 py-4 overflow-y-auto">
-        <div className={clsx('mb-1 px-3', !sidebarCollapsed && 'px-4')}>
-          {!sidebarCollapsed && (
-            <p className="text-xs font-semibold text-[#5a6580] uppercase tracking-wider mb-2 px-2">
-              Main Menu
-            </p>
-          )}
-          {filteredNavItems.map(({ to, icon: Icon, label }) => {
-            const isActive = to === '/'
-              ? location.pathname === '/'
-              : location.pathname.startsWith(to);
-            return (
-              <NavLink
-                key={to}
-                to={to}
-                aria-label={sidebarCollapsed ? label : undefined}
-                aria-current={isActive ? 'page' : undefined}
-                className={clsx(
-                  'flex items-center gap-3 px-2 py-2.5 rounded-lg mb-0.5 transition-all duration-150 group',
-                  isActive
-                    ? 'bg-blue-600/20 text-blue-400'
-                    : 'text-[#8892a4] hover:bg-white/5 hover:text-white'
+      {/* Navigation */}
+      <nav className="flex-1 py-3 px-3 space-y-0.5 overflow-y-auto" role="navigation" aria-label="Main navigation" style={{ scrollbarWidth: 'none' }}>
+        {NAV_ITEMS.map(({ label, icon: Icon, path }) => (
+          <NavLink
+            key={path}
+            to={path}
+            end={path === '/'}
+            className={({ isActive }) =>
+              clsx(
+                'group flex items-center gap-3 rounded-lg transition-all duration-150 relative',
+                collapsed ? 'justify-center px-0 py-2.5 mx-auto w-10 h-10' : 'px-3 py-2',
+                isActive
+                  ? 'bg-blue-500/[0.12] text-blue-400'
+                  : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+              )
+            }
+          >
+            {({ isActive }) => (
+              <>
+                {isActive && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-blue-400 rounded-r-full" />
                 )}
-                title={sidebarCollapsed ? label : undefined}
-              >
-                <Icon
-                  size={18}
-                  aria-hidden="true"
-                  className={clsx(
-                    'flex-shrink-0 transition-colors',
-                    isActive ? 'text-blue-400' : 'text-[#8892a4] group-hover:text-white'
-                  )}
-                />
-                {!sidebarCollapsed && (
-                  <span className="text-sm font-medium truncate">{label}</span>
-                )}
-                {isActive && !sidebarCollapsed && (
-                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400" aria-hidden="true" />
-                )}
-              </NavLink>
-            );
-          })}
-        </div>
+                <Icon size={18} className={clsx('flex-shrink-0', isActive ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300')} />
+                {!collapsed && <span className="text-[13px] font-medium truncate">{label}</span>}
+              </>
+            )}
+          </NavLink>
+        ))}
       </nav>
 
-      {/* Bottom section */}
-      <div className="border-t border-white/10 p-3">
-        <div className={clsx(
-          'flex items-center gap-3 px-2 py-2 rounded-lg',
-          sidebarCollapsed && 'justify-center'
-        )}>
-          <div
-            aria-hidden="true"
-            className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold"
-          >
-            {initials}
-          </div>
-          {!sidebarCollapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{displayName}</p>
-              <p className="text-xs text-[#8892a4] truncate">{currentUserRole}</p>
+      {/* User section */}
+      <div className="flex-shrink-0 border-t border-white/[0.06] p-3">
+        {!collapsed && (
+          <div className="flex items-center gap-3 px-2 py-2 mb-1">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+              {currentUserName.split(' ').map(n => n[0]).join('')}
             </div>
-          )}
-          {!sidebarCollapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-medium text-slate-200 truncate">{currentUserName}</p>
+              <p className="text-[11px] text-slate-500 truncate">{currentUserRole}</p>
+            </div>
+          </div>
+        )}
+        <div className="flex items-center gap-1">
+          {!collapsed && (
             <button
-              onClick={logout}
-              aria-label="Sign out"
-              className="text-[#8892a4] hover:text-white transition-colors flex-shrink-0 p-1 rounded"
+              onClick={handleLogout}
+              className="flex-1 flex items-center gap-2 px-3 py-2 text-[13px] text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all duration-150"
+              title="Sign out"
             >
-              <LogOut size={15} aria-hidden="true" />
+              <LogOut size={15} />
+              Sign out
             </button>
           )}
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className={clsx(
+              'flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.04] transition-all duration-150',
+              collapsed ? 'w-10 h-10 mx-auto' : 'w-8 h-8'
+            )}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
         </div>
       </div>
-
-      {/* Collapse button */}
-      <button
-        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        aria-expanded={!sidebarCollapsed}
-        className="absolute -right-3 top-6 w-6 h-6 bg-[#1a2035] border border-white/20 rounded-full flex items-center justify-center text-[#8892a4] hover:text-white transition-colors cursor-pointer z-10"
-      >
-        {sidebarCollapsed
-          ? <ChevronRight size={12} aria-hidden="true" />
-          : <ChevronLeft size={12} aria-hidden="true" />}
-      </button>
     </aside>
   );
 }
