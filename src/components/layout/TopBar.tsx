@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, Bell, Plus, X, Check, Monitor, AppWindow, Users } from 'lucide-react';
+import { Search, Bell, Plus, X, Check, Monitor, AppWindow, Users, Sun, Moon, Laptop } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { clsx } from 'clsx';
 import { formatDistanceToNow } from 'date-fns';
@@ -24,10 +24,11 @@ const quickAddOptions = [
 export function TopBar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { notifications, markAllNotificationsRead, globalSearch, setGlobalSearch, assets, apps, people } = useStore();
+  const { notifications, markAllNotificationsRead, globalSearch, setGlobalSearch, assets, apps, people, theme, setTheme } = useStore();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [showThemeMenu, setShowThemeMenu] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -79,6 +80,8 @@ export function TopBar() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  const ThemeIcon = theme === 'dark' ? Moon : theme === 'system' ? Laptop : Sun;
+
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-4 flex-shrink-0 z-20">
       {/* Breadcrumb */}
@@ -106,16 +109,21 @@ export function TopBar() {
         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           type="text"
+          data-global-search
           placeholder="Search assets, apps, people..."
           value={globalSearch}
           onChange={(e) => { setGlobalSearch(e.target.value); setShowSearchResults(true); }}
           onFocus={() => setShowSearchResults(true)}
-          className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
+          className="w-full pl-9 pr-16 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
         />
-        {globalSearch && (
+        {globalSearch ? (
           <button onClick={() => { setGlobalSearch(''); setShowSearchResults(false); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
             <X size={13} />
           </button>
+        ) : (
+          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 font-mono pointer-events-none">
+            {navigator.platform.includes('Mac') ? '\u2318K' : 'Ctrl+K'}
+          </kbd>
         )}
 
         {/* Search Results Dropdown */}
@@ -212,10 +220,43 @@ export function TopBar() {
         )}
       </div>
 
+      {/* Theme Toggle */}
+      <div className="relative">
+        <button
+          onClick={() => { setShowThemeMenu(!showThemeMenu); setShowNotifications(false); setShowQuickAdd(false); }}
+          className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-900"
+          title="Toggle theme"
+        >
+          <ThemeIcon size={18} />
+        </button>
+        {showThemeMenu && (
+          <div className="absolute right-0 top-full mt-2 w-36 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden py-1">
+            {([
+              { value: 'light' as const, label: 'Light', icon: Sun },
+              { value: 'dark' as const, label: 'Dark', icon: Moon },
+              { value: 'system' as const, label: 'System', icon: Laptop },
+            ]).map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                onClick={() => { setTheme(value); setShowThemeMenu(false); }}
+                className={clsx(
+                  'w-full px-3 py-2 text-sm flex items-center gap-2.5 transition-colors text-left',
+                  theme === value ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-50'
+                )}
+              >
+                <Icon size={14} />
+                {label}
+                {theme === value && <Check size={12} className="ml-auto text-blue-600" />}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Notifications */}
       <div className="relative">
         <button
-          onClick={() => { setShowNotifications(!showNotifications); setShowQuickAdd(false); }}
+          onClick={() => { setShowNotifications(!showNotifications); setShowQuickAdd(false); setShowThemeMenu(false); }}
           className="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-900"
         >
           <Bell size={18} />
@@ -279,7 +320,7 @@ export function TopBar() {
       {/* Quick Add */}
       <div className="relative">
         <button
-          onClick={() => { setShowQuickAdd(!showQuickAdd); setShowNotifications(false); }}
+          onClick={() => { setShowQuickAdd(!showQuickAdd); setShowNotifications(false); setShowThemeMenu(false); }}
           className="btn-primary text-sm"
         >
           <Plus size={16} />
@@ -301,10 +342,10 @@ export function TopBar() {
       </div>
 
       {/* Click outside to close dropdowns */}
-      {(showNotifications || showQuickAdd) && (
+      {(showNotifications || showQuickAdd || showThemeMenu) && (
         <div
           className="fixed inset-0 z-40"
-          onClick={() => { setShowNotifications(false); setShowQuickAdd(false); }}
+          onClick={() => { setShowNotifications(false); setShowQuickAdd(false); setShowThemeMenu(false); }}
         />
       )}
     </header>

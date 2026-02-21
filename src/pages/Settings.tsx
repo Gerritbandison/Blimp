@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Building2, Users, SlidersHorizontal, Bell, Tag, Key, CreditCard,
-  Plus, Trash2, Copy, RefreshCw
+  Plus, Trash2, Copy, RefreshCw, Palette, Sun, Moon, Laptop
 } from 'lucide-react';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { Modal } from '../components/common/Modal';
@@ -16,6 +16,7 @@ const SETTINGS_NAV = [
   { id: 'fields', label: 'Custom Fields', icon: SlidersHorizontal },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'statuses', label: 'Asset Statuses', icon: Tag },
+  { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'api', label: 'API Access', icon: Key },
   { id: 'billing', label: 'Billing', icon: CreditCard },
 ];
@@ -34,7 +35,7 @@ export function Settings() {
   const {
     addToast, companySettings, updateCompanySettings,
     notificationSettings, updateNotificationSettings,
-    orgUsers, updateOrgUser,
+    orgUsers, updateOrgUser, theme, setTheme,
   } = useStore();
   const [activeSection, setActiveSection] = useState('company');
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -214,6 +215,54 @@ export function Settings() {
               ))}
             </div>
             <div className="flex justify-end"><button className="btn-primary" onClick={handleSaveNotifications}>Save Preferences</button></div>
+          </div>
+        )}
+
+        {/* ── Appearance ── */}
+        {activeSection === 'appearance' && (
+          <div className="max-w-2xl space-y-6">
+            <div><h2 className="text-lg font-bold text-gray-900">Appearance</h2><p className="text-sm text-gray-500">Customize the look and feel of your workspace</p></div>
+            <div className="card p-5 space-y-5">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Theme</h3>
+                <div className="grid grid-cols-3 gap-3">
+                  {([
+                    { value: 'light' as const, label: 'Light', icon: Sun, desc: 'Clean light interface' },
+                    { value: 'dark' as const, label: 'Dark', icon: Moon, desc: 'Easy on the eyes' },
+                    { value: 'system' as const, label: 'System', icon: Laptop, desc: 'Follow OS setting' },
+                  ]).map(({ value, label, icon: Icon, desc }) => (
+                    <button
+                      key={value}
+                      onClick={() => { setTheme(value); addToast({ type: 'success', message: `Theme set to ${label}` }); }}
+                      className={clsx(
+                        'p-4 rounded-xl border-2 transition-all text-left',
+                        theme === value
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      )}
+                    >
+                      <Icon size={20} className={theme === value ? 'text-blue-600' : 'text-gray-500'} />
+                      <p className="text-sm font-medium text-gray-900 mt-2">{label}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="border-t border-gray-100 pt-5">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">Keyboard Shortcuts</h3>
+                <div className="space-y-2">
+                  {[
+                    { keys: navigator.platform.includes('Mac') ? '\u2318 + K' : 'Ctrl + K', action: 'Open global search' },
+                    { keys: 'Escape', action: 'Close modals and dropdowns' },
+                  ].map(({ keys, action }) => (
+                    <div key={keys} className="flex items-center justify-between py-2">
+                      <span className="text-sm text-gray-600">{action}</span>
+                      <kbd className="text-xs text-gray-500 bg-gray-100 border border-gray-200 rounded px-2 py-1 font-mono">{keys}</kbd>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

@@ -97,6 +97,7 @@ export function AppList() {
   const [showFilters, setShowFilters] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [activeView, setActiveView] = useState<'list' | 'renewals'>('list');
+  const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
   const [newApp, setNewApp] = useState<Partial<App>>({
     status: 'Active', licenseType: 'Per User', billingCycle: 'monthly', currency: 'USD',
     category: 'Productivity', detectionSource: 'Manual', totalLicenses: 0, assignedLicenses: 0, costPerLicense: 0, noticePeriodDays: 30,
@@ -126,7 +127,11 @@ export function AppList() {
     .sort((a, b) => new Date(a.renewalDate).getTime() - new Date(b.renewalDate).getTime());
 
   function handleAddApp() {
-    if (!newApp.name || !newApp.vendor) return;
+    const errors: Record<string, boolean> = {};
+    if (!newApp.name?.trim()) errors.name = true;
+    if (!newApp.vendor?.trim()) errors.vendor = true;
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     addApp({
       id: `app${Date.now()}`,
       name: newApp.name!,
@@ -380,12 +385,14 @@ export function AppList() {
       >
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1 block">App Name *</label>
-            <input className="input" placeholder="e.g. Slack" value={newApp.name || ''} onChange={(e) => setNewApp(p => ({ ...p, name: e.target.value }))} />
+            <label className="text-xs font-medium text-gray-700 mb-1 block">App Name <span className="text-red-500">*</span></label>
+            <input className={clsx('input', formErrors.name && 'border-red-400 ring-1 ring-red-400')} placeholder="e.g. Slack" value={newApp.name || ''} onChange={(e) => { setNewApp(p => ({ ...p, name: e.target.value })); setFormErrors(f => ({ ...f, name: false })); }} />
+            {formErrors.name && <p className="text-xs text-red-500 mt-1">App name is required</p>}
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1 block">Vendor *</label>
-            <input className="input" placeholder="e.g. Salesforce" value={newApp.vendor || ''} onChange={(e) => setNewApp(p => ({ ...p, vendor: e.target.value }))} />
+            <label className="text-xs font-medium text-gray-700 mb-1 block">Vendor <span className="text-red-500">*</span></label>
+            <input className={clsx('input', formErrors.vendor && 'border-red-400 ring-1 ring-red-400')} placeholder="e.g. Salesforce" value={newApp.vendor || ''} onChange={(e) => { setNewApp(p => ({ ...p, vendor: e.target.value })); setFormErrors(f => ({ ...f, vendor: false })); }} />
+            {formErrors.vendor && <p className="text-xs text-red-500 mt-1">Vendor is required</p>}
           </div>
           <div>
             <label className="text-xs font-medium text-gray-700 mb-1 block">Category</label>

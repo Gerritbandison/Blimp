@@ -21,6 +21,16 @@ export function Modal({ open, onClose, title, children, size = 'md', footer }: M
     return () => { document.body.style.overflow = ''; };
   }, [open]);
 
+  // Escape key closes modal
+  useEffect(() => {
+    if (!open) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const sizeMap = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };

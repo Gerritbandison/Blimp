@@ -35,10 +35,12 @@ interface AppState {
   sidebarCollapsed: boolean;
   globalSearch: string;
   toasts: ToastMessage[];
+  theme: 'light' | 'dark' | 'system';
 
   // Actions
   setSidebarCollapsed: (collapsed: boolean) => void;
   setGlobalSearch: (search: string) => void;
+  setTheme: (theme: 'light' | 'dark' | 'system') => void;
 
   // Asset actions
   addAsset: (asset: Asset) => void;
@@ -119,9 +121,11 @@ export const useStore = create<AppState>()(
       sidebarCollapsed: false,
       globalSearch: '',
       toasts: [],
+      theme: 'light',
 
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
       setGlobalSearch: (search) => set({ globalSearch: search }),
+      setTheme: (theme) => set({ theme }),
 
       // ── Asset actions ──
       addAsset: (asset) => {
@@ -331,6 +335,7 @@ export const useStore = create<AppState>()(
         companySettings: state.companySettings,
         notificationSettings: state.notificationSettings,
         sidebarCollapsed: state.sidebarCollapsed,
+        theme: state.theme,
       }),
     }
   )

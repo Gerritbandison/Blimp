@@ -56,6 +56,7 @@ export function PeopleList() {
   const [deptFilter, setDeptFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
   const [newPerson, setNewPerson] = useState<Partial<Person>>({
     status: 'Active', assetsAssigned: 0, licensesAssigned: 0, totalItCost: 0,
   });
@@ -80,7 +81,11 @@ export function PeopleList() {
   }, [people, statusFilter, deptFilter, search]);
 
   function handleAddPerson() {
-    if (!newPerson.name || !newPerson.email) return;
+    const errors: Record<string, boolean> = {};
+    if (!newPerson.name?.trim()) errors.name = true;
+    if (!newPerson.email?.trim()) errors.email = true;
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     addPerson({
       id: `p${Date.now()}`,
       name: newPerson.name!,
@@ -213,12 +218,14 @@ export function PeopleList() {
       >
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1 block">Full Name *</label>
-            <input className="input" placeholder="e.g. Jane Smith" value={newPerson.name || ''} onChange={(e) => setNewPerson(p => ({ ...p, name: e.target.value }))} />
+            <label className="text-xs font-medium text-gray-700 mb-1 block">Full Name <span className="text-red-500">*</span></label>
+            <input className={clsx('input', formErrors.name && 'border-red-400 ring-1 ring-red-400')} placeholder="e.g. Jane Smith" value={newPerson.name || ''} onChange={(e) => { setNewPerson(p => ({ ...p, name: e.target.value })); setFormErrors(f => ({ ...f, name: false })); }} />
+            {formErrors.name && <p className="text-xs text-red-500 mt-1">Name is required</p>}
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1 block">Email *</label>
-            <input type="email" className="input" placeholder="jane@company.com" value={newPerson.email || ''} onChange={(e) => setNewPerson(p => ({ ...p, email: e.target.value }))} />
+            <label className="text-xs font-medium text-gray-700 mb-1 block">Email <span className="text-red-500">*</span></label>
+            <input type="email" className={clsx('input', formErrors.email && 'border-red-400 ring-1 ring-red-400')} placeholder="jane@company.com" value={newPerson.email || ''} onChange={(e) => { setNewPerson(p => ({ ...p, email: e.target.value })); setFormErrors(f => ({ ...f, email: false })); }} />
+            {formErrors.email && <p className="text-xs text-red-500 mt-1">Email is required</p>}
           </div>
           <div>
             <label className="text-xs font-medium text-gray-700 mb-1 block">Department</label>

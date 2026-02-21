@@ -7,6 +7,7 @@ import {
 import { DataTable, type Column } from '../../components/common/DataTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Modal } from '../../components/common/Modal';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { useStore } from '../../store/useStore';
 import { EmptyState } from '../../components/common/EmptyState';
 import { exportToCSV } from '../../utils/csvExport';
@@ -70,6 +71,8 @@ export function AssetList() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [hiddenCols, setHiddenCols] = useState<string[]>(['serial', 'detectionSource']);
   const [showFilters, setShowFilters] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
   const [newAsset, setNewAsset] = useState<Partial<Asset>>({ status: 'In Stock', type: 'Laptop', currency: 'USD', cost: 0 });
 
   const locations = [...new Set(assets.map((a) => a.location))];
@@ -108,7 +111,11 @@ export function AssetList() {
   }
 
   function handleAddAsset() {
-    if (!newAsset.name || !newAsset.tag) return;
+    const errors: Record<string, boolean> = {};
+    if (!newAsset.tag?.trim()) errors.tag = true;
+    if (!newAsset.name?.trim()) errors.name = true;
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     const id = `a${Date.now()}`;
     useStore.getState().addAsset({
       id,
@@ -215,7 +222,7 @@ export function AssetList() {
               <button className="btn-secondary" onClick={handleBulkRetire}>
                 <Archive size={14} /> Retire
               </button>
-              <button className="btn-secondary text-red-600 hover:bg-red-50 hover:border-red-200" onClick={handleBulkDelete}>
+              <button className="btn-secondary text-red-600 hover:bg-red-50 hover:border-red-200" onClick={() => setShowDeleteConfirm(true)}>
                 <Trash2 size={14} /> Delete
               </button>
             </div>
@@ -306,12 +313,14 @@ export function AssetList() {
       >
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1 block">Asset Tag *</label>
-            <input className="input" placeholder="AST-XXXX" value={newAsset.tag || ''} onChange={(e) => setNewAsset(p => ({ ...p, tag: e.target.value }))} />
+            <label className="text-xs font-medium text-gray-700 mb-1 block">Asset Tag <span className="text-red-500">*</span></label>
+            <input className={clsx('input', formErrors.tag && 'border-red-400 ring-1 ring-red-400')} placeholder="AST-XXXX" value={newAsset.tag || ''} onChange={(e) => { setNewAsset(p => ({ ...p, tag: e.target.value })); setFormErrors(f => ({ ...f, tag: false })); }} />
+            {formErrors.tag && <p className="text-xs text-red-500 mt-1">Asset tag is required</p>}
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1 block">Asset Name *</label>
-            <input className="input" placeholder="e.g. MacBook Pro 14" value={newAsset.name || ''} onChange={(e) => setNewAsset(p => ({ ...p, name: e.target.value }))} />
+            <label className="text-xs font-medium text-gray-700 mb-1 block">Asset Name <span className="text-red-500">*</span></label>
+            <input className={clsx('input', formErrors.name && 'border-red-400 ring-1 ring-red-400')} placeholder="e.g. MacBook Pro 14" value={newAsset.name || ''} onChange={(e) => { setNewAsset(p => ({ ...p, name: e.target.value })); setFormErrors(f => ({ ...f, name: false })); }} />
+            {formErrors.name && <p className="text-xs text-red-500 mt-1">Asset name is required</p>}
           </div>
           <div>
             <label className="text-xs font-medium text-gray-700 mb-1 block">Type</label>
@@ -363,6 +372,15 @@ export function AssetList() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleBulkDelete}
+        title="Delete Assets"
+        message={`Are you sure you want to delete ${selectedIds.length} asset${selectedIds.length !== 1 ? 's' : ''}? This action cannot be undone.`}
+        confirmLabel={`Delete ${selectedIds.length} asset${selectedIds.length !== 1 ? 's' : ''}`}
+      />
     </div>
   );
 }
