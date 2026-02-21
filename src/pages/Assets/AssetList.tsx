@@ -9,6 +9,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { Modal } from '../../components/common/Modal';
 import { useStore } from '../../store/useStore';
 import { EmptyState } from '../../components/common/EmptyState';
+import { exportToCSV } from '../../utils/csvExport';
 import type { Asset, AssetStatus, AssetType } from '../../types';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
@@ -141,7 +142,22 @@ export function AssetList() {
           <p className="text-sm text-gray-500 mt-0.5">{assets.length} total assets · {assets.filter(a => a.status === 'Deployed').length} deployed</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="btn-secondary" onClick={() => addToast({ type: 'info', message: 'Export started — CSV download will begin shortly' })}>
+          <button className="btn-secondary" onClick={() => {
+            exportToCSV(
+              filtered as unknown as Record<string, unknown>[],
+              [
+                { key: 'tag', label: 'Asset Tag' }, { key: 'name', label: 'Name' },
+                { key: 'type', label: 'Type' }, { key: 'make', label: 'Make' },
+                { key: 'model', label: 'Model' }, { key: 'serial', label: 'Serial' },
+                { key: 'status', label: 'Status' }, { key: 'assignedTo', label: 'Assigned To' },
+                { key: 'location', label: 'Location' }, { key: 'purchaseDate', label: 'Purchase Date' },
+                { key: 'warrantyExpiry', label: 'Warranty Expiry' }, { key: 'cost', label: 'Cost' },
+                { key: 'vendor', label: 'Vendor' },
+              ],
+              'assets'
+            );
+            addToast({ type: 'success', message: `Exported ${filtered.length} assets to CSV` });
+          }}>
             <Download size={15} /> Export
           </button>
           <button onClick={() => setShowAddModal(true)} className="btn-primary">

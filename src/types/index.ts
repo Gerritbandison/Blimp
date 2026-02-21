@@ -57,11 +57,11 @@ export interface LifecycleEvent {
 }
 
 // ─── App / License Types ───────────────────────────────────────────────────
-export type AppStatus = 'Active' | 'Inactive' | 'Pending' | 'Expired';
+export type AppStatus = 'Active' | 'Inactive' | 'Pending' | 'Expired' | 'In Review' | 'Shadow IT';
 export type LicenseType = 'Per User' | 'Per Device' | 'Site' | 'Enterprise' | 'Open Source';
 export type LicenseStatus = 'Active' | 'Unused' | 'Pending' | 'Expired';
-export type DetectionSource = 'Manual' | 'SSO' | 'MDM' | 'Accounting' | 'Shadow IT';
-export type AppCategory = 'Productivity' | 'Development' | 'Design' | 'Communication' | 'Security' | 'HR' | 'Finance' | 'Marketing' | 'Analytics' | 'Infrastructure' | 'Other';
+export type DetectionSource = 'Manual' | 'SSO' | 'MDM' | 'Accounting' | 'Shadow IT' | string;
+export type AppCategory = 'Productivity' | 'Development' | 'Design' | 'Communication' | 'Security' | 'HR' | 'Finance' | 'Marketing' | 'Analytics' | 'Infrastructure' | 'Business' | 'Other';
 
 export interface App {
   id: string;

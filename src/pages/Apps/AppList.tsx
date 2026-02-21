@@ -6,6 +6,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { Modal } from '../../components/common/Modal';
 import { EmptyState } from '../../components/common/EmptyState';
 import { useStore } from '../../store/useStore';
+import { exportToCSV } from '../../utils/csvExport';
 import type { App, AppCategory, AppStatus, LicenseType } from '../../types';
 import { clsx } from 'clsx';
 import { format, differenceInDays } from 'date-fns';
@@ -169,7 +170,22 @@ export function AppList() {
           <p className="text-sm text-gray-500 mt-0.5">{apps.length} apps · ${totalMonthlyCost.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/mo</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="btn-secondary" onClick={() => addToast({ type: 'info', message: 'Export started' })}>
+          <button className="btn-secondary" onClick={() => {
+            exportToCSV(
+              filtered as unknown as Record<string, unknown>[],
+              [
+                { key: 'name', label: 'App Name' }, { key: 'vendor', label: 'Vendor' },
+                { key: 'category', label: 'Category' }, { key: 'status', label: 'Status' },
+                { key: 'totalLicenses', label: 'Total Licenses' },
+                { key: 'assignedLicenses', label: 'Assigned Licenses' },
+                { key: 'costPerLicense', label: 'Cost/License' },
+                { key: 'billingCycle', label: 'Billing Cycle' },
+                { key: 'renewalDate', label: 'Renewal Date' },
+              ],
+              'apps'
+            );
+            addToast({ type: 'success', message: `Exported ${filtered.length} apps to CSV` });
+          }}>
             <Download size={15} /> Export
           </button>
           <button onClick={() => setShowAddModal(true)} className="btn-primary">

@@ -199,7 +199,7 @@ export function Dashboard() {
                   <Pie data={assetStatusData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} labelLine={false} label={renderCustomizedLabel} dataKey="value">
                     {assetStatusData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
                   </Pie>
-                  <Tooltip formatter={(value: unknown) => [value, 'Assets']} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                  <Tooltip formatter={(value: unknown) => [String(value ?? 0), 'Assets']} contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="grid grid-cols-2 gap-1.5 mt-2">

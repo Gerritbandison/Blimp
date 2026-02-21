@@ -6,6 +6,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { Modal } from '../../components/common/Modal';
 import { EmptyState } from '../../components/common/EmptyState';
 import { useStore } from '../../store/useStore';
+import { exportToCSV } from '../../utils/csvExport';
 import type { Person, PersonStatus } from '../../types';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
@@ -111,7 +112,21 @@ export function PeopleList() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="btn-secondary" onClick={() => addToast({ type: 'info', message: 'Export started' })}>
+          <button className="btn-secondary" onClick={() => {
+            exportToCSV(
+              filtered as unknown as Record<string, unknown>[],
+              [
+                { key: 'name', label: 'Name' }, { key: 'email', label: 'Email' },
+                { key: 'department', label: 'Department' }, { key: 'title', label: 'Title' },
+                { key: 'status', label: 'Status' }, { key: 'location', label: 'Location' },
+                { key: 'startDate', label: 'Start Date' }, { key: 'managerName', label: 'Manager' },
+                { key: 'assetsAssigned', label: 'Assets' }, { key: 'licensesAssigned', label: 'Licenses' },
+                { key: 'totalItCost', label: 'IT Cost' },
+              ],
+              'people'
+            );
+            addToast({ type: 'success', message: `Exported ${filtered.length} people to CSV` });
+          }}>
             <Download size={15} /> Export
           </button>
           <button onClick={() => setShowAddModal(true)} className="btn-primary">

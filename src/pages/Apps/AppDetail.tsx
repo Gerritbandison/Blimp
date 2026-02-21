@@ -10,7 +10,7 @@ import { DataTable, type Column } from '../../components/common/DataTable';
 import { useStore } from '../../store/useStore';
 import { format, differenceInDays } from 'date-fns';
 import { clsx } from 'clsx';
-import type { License, AppStatus } from '../../types';
+import type { License, AppStatus, AppCategory } from '../../types';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -48,7 +48,7 @@ export function AppDetail() {
   const app = apps.find((a) => a.id === id);
 
   const [draft, setDraft] = useState({
-    name: '', vendor: '', status: '' as AppStatus, category: '',
+    name: '', vendor: '', status: '' as AppStatus, category: '' as AppCategory,
     costPerLicense: 0, totalLicenses: 0, assignedLicenses: 0,
     renewalDate: '', billingCycle: '' as 'monthly' | 'annual',
     adminOwner: '', businessOwner: '',
@@ -178,7 +178,7 @@ export function AppDetail() {
                     <div><label className="text-xs font-medium text-gray-500 mb-1 block">Name</label><input className="input" value={draft.name} onChange={(e) => setDraft(d => ({ ...d, name: e.target.value }))} /></div>
                     <div><label className="text-xs font-medium text-gray-500 mb-1 block">Vendor</label><input className="input" value={draft.vendor} onChange={(e) => setDraft(d => ({ ...d, vendor: e.target.value }))} /></div>
                     <div><label className="text-xs font-medium text-gray-500 mb-1 block">Status</label><select className="select" value={draft.status} onChange={(e) => setDraft(d => ({ ...d, status: e.target.value as AppStatus }))}>{APP_STATUSES.map(s => <option key={s}>{s}</option>)}</select></div>
-                    <div><label className="text-xs font-medium text-gray-500 mb-1 block">Category</label><input className="input" value={draft.category} onChange={(e) => setDraft(d => ({ ...d, category: e.target.value }))} /></div>
+                    <div><label className="text-xs font-medium text-gray-500 mb-1 block">Category</label><input className="input" value={draft.category} onChange={(e) => setDraft(d => ({ ...d, category: e.target.value as AppCategory }))} /></div>
                     <div><label className="text-xs font-medium text-gray-500 mb-1 block">Cost/License</label><input type="number" className="input" value={draft.costPerLicense} onChange={(e) => setDraft(d => ({ ...d, costPerLicense: parseFloat(e.target.value) || 0 }))} /></div>
                     <div><label className="text-xs font-medium text-gray-500 mb-1 block">Total Licenses</label><input type="number" className="input" value={draft.totalLicenses} onChange={(e) => setDraft(d => ({ ...d, totalLicenses: parseInt(e.target.value) || 0 }))} /></div>
                     <div><label className="text-xs font-medium text-gray-500 mb-1 block">Assigned Licenses</label><input type="number" className="input" value={draft.assignedLicenses} onChange={(e) => setDraft(d => ({ ...d, assignedLicenses: parseInt(e.target.value) || 0 }))} /></div>
