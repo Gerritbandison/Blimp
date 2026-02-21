@@ -240,7 +240,7 @@ export interface AgentPeripheral {
   serial?: string;
   vendorId?: string;
   productId?: string;
-  connectionType: 'USB' | 'Bluetooth' | 'Thunderbolt' | 'Other';
+  connectionType: 'USB' | 'USB-C' | 'Bluetooth' | 'Thunderbolt' | 'Other';
   isBuiltIn: boolean;
 }
 

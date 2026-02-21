@@ -1,12 +1,13 @@
 import { useState, useRef } from 'react';
 import {
   CheckCircle, Download, Upload, Monitor, Cpu, HardDrive, Wifi,
-  AlertCircle, RefreshCw, Usb, Keyboard, Mouse, Server,
+  AlertCircle, RefreshCw, Usb, Keyboard, Mouse, Server, FlaskConical,
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { clsx } from 'clsx';
 import type { AgentReport, AgentPeripheral } from '../../types';
 import { parseAgentReport, buildAssetsFromReport } from '../../utils/agentImport';
+import { THINKPAD_E14_AGENT_REPORT } from '../../data/lenovoScenario';
 
 interface Props {
   open: boolean;
@@ -270,9 +271,19 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
         {/* Import tab */}
         {activeTab === 'import' && (
           <div className="space-y-4">
-            <p className="text-xs text-gray-500">
-              Run <code className="bg-gray-100 px-1 rounded">python3 blimp_agent.py -o report.json</code> on the target machine, then upload or paste the resulting file below.
-            </p>
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-xs text-gray-500">
+                Run <code className="bg-gray-100 px-1 rounded">python3 blimp_agent.py -o report.json</code> on the target machine, then upload or paste the resulting file below.
+              </p>
+              <button
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
+                onClick={() => handleJsonChange(JSON.stringify(THINKPAD_E14_AGENT_REPORT, null, 2))}
+                title="Load a realistic ThinkPad E14 Gen 7 report to try the import flow"
+              >
+                <FlaskConical size={12} />
+                Load ThinkPad E14 Gen 7 Sample
+              </button>
+            </div>
 
             {/* Drag & drop zone */}
             <div

@@ -11,12 +11,20 @@ const config: NinjaOneConfig = {
 }
 
 describe('NinjaOne integration utility', () => {
-  beforeEach(() => { vi.useFakeTimers() })
-  afterEach(() => { vi.useRealTimers() })
+  beforeEach(() => {
+    vi.useFakeTimers()
+    // Simulate CORS / network error so validateNinjaOneCredentials falls back to demo mode
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
 
   it('validateNinjaOneCredentials resolves ok', async () => {
     const promise = validateNinjaOneCredentials(config)
-    vi.advanceTimersByTime(1500)
+    // runAllTimersAsync handles microtasks (fetch rejection) + the fallback setTimeout
+    await vi.runAllTimersAsync()
     const result = await promise
     expect(result.ok).toBe(true)
   })

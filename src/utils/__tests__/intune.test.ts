@@ -11,12 +11,20 @@ const config: IntuneConfig = {
 }
 
 describe('Intune integration utility', () => {
-  beforeEach(() => { vi.useFakeTimers() })
-  afterEach(() => { vi.useRealTimers() })
+  beforeEach(() => {
+    vi.useFakeTimers()
+    // Simulate CORS / network error so validateIntuneCredentials falls back to demo mode
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
 
   it('validateIntuneCredentials resolves ok after delay', async () => {
     const promise = validateIntuneCredentials(config)
-    vi.advanceTimersByTime(1800)
+    // runAllTimersAsync handles microtasks (fetch rejection) + the fallback setTimeout
+    await vi.runAllTimersAsync()
     const result = await promise
     expect(result.ok).toBe(true)
     expect(result.error).toBeUndefined()
