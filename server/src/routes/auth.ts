@@ -2,12 +2,11 @@ import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
 import { config } from '../config.js';
 import { authenticate } from '../middleware/auth.js';
+import { prisma } from '../lib/prisma.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 const SALT_ROUNDS = 12;
 

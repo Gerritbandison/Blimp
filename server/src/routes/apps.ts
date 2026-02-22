@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { PrismaClient, type Prisma, AppStatus, LicenseType } from '@prisma/client';
+import { type Prisma, AppStatus, LicenseType } from '@prisma/client';
 import { authenticate } from '../middleware/auth.js';
 import { mapAppStatusFromDb, mapAppStatusToDb, mapLicenseTypeFromDb, mapLicenseTypeToDb } from '../utils/mappers.js';
 import { qstr, qint, param } from '../utils/query.js';
 
+import { prisma } from '../lib/prisma.js';
+
 const router = Router();
-const prisma = new PrismaClient();
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 

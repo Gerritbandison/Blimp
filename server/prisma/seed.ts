@@ -5,10 +5,15 @@
  * Run: npx tsx prisma/seed.ts
  */
 
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import 'dotenv/config';
 
-const prisma = new PrismaClient();
+const connectionString =
+  process.env.DATABASE_URL ?? 'postgresql://blimp:blimp@localhost:5432/blimp';
+const adapter = new PrismaPg({ connectionString });
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log('Seeding database...');

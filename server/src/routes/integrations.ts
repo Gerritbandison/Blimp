@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { mapIntegrationStatusFromDb, intuneDeviceToAssetData, ninjaDeviceToAssetData } from '../utils/mappers.js';
 import { param } from '../utils/query.js';
+import { prisma } from '../lib/prisma.js';
 import {
   validateIntuneCredentials,
   fetchIntuneDevices,
@@ -17,7 +17,6 @@ import {
 } from '../services/ninjaone.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 

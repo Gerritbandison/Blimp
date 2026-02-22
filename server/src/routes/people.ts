@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { PrismaClient, type Prisma, PersonStatus } from '@prisma/client';
+import { type Prisma, PersonStatus } from '@prisma/client';
 import { authenticate } from '../middleware/auth.js';
 import { qstr, qint, param } from '../utils/query.js';
 
+import { prisma } from '../lib/prisma.js';
+
 const router = Router();
-const prisma = new PrismaClient();
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 

@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { PrismaClient, type Prisma } from '@prisma/client';
+import { type Prisma } from '@prisma/client';
 import { authenticate } from '../middleware/auth.js';
 import { qstr, qint } from '../utils/query.js';
+import { prisma } from '../lib/prisma.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // ─── GET /activity ──────────────────────────────────────────────────────────
 
