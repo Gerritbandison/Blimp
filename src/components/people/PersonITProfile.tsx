@@ -13,7 +13,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Monitor, Cpu, HardDrive, MemoryStick, Wifi, WifiOff, ShieldCheck, ShieldAlert,
+  Monitor, Cpu, MemoryStick, Wifi, WifiOff, ShieldCheck, ShieldAlert,
   AppWindow, DollarSign, Tag, ExternalLink, Loader2, AlertCircle,
   Laptop, Smartphone, Server, Printer, Network, Package,
 } from 'lucide-react';

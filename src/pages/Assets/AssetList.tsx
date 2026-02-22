@@ -2,7 +2,9 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Download, Filter, Search, Trash2, Archive,
-  Monitor, SlidersHorizontal, Upload, Edit3
+  Monitor, SlidersHorizontal, Upload, Edit3,
+  Laptop, Smartphone, Server, Printer, Network, Package,
+  LayoutGrid, List, ChevronDown, ChevronRight, MapPin, User, DollarSign,
 } from 'lucide-react';
 import { DataTable, type Column } from '../../components/common/DataTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
@@ -59,6 +61,103 @@ const ALL_COLUMNS: Column<Asset>[] = [
 const ASSET_STATUSES: AssetStatus[] = ['Deployed', 'In Stock', 'In Repair', 'Retired', 'Lost'];
 const ASSET_TYPES: AssetType[] = ['Laptop', 'Monitor', 'Phone', 'Tablet', 'Desktop', 'Server', 'Printer', 'Network', 'Peripheral', 'Other'];
 
+// ─── Grouped view helpers ─────────────────────────────────────────────────────
+
+const TYPE_ORDER: AssetType[] = ['Laptop', 'Desktop', 'Server', 'Phone', 'Tablet', 'Monitor', 'Printer', 'Network', 'Peripheral', 'Other'];
+
+const TYPE_META: Record<string, { icon: React.ReactNode; color: string; bg: string }> = {
+  Laptop:     { icon: <Laptop size={13} />,     color: 'text-blue-600',   bg: 'bg-blue-50' },
+  Desktop:    { icon: <Monitor size={13} />,    color: 'text-violet-600', bg: 'bg-violet-50' },
+  Server:     { icon: <Server size={13} />,     color: 'text-slate-600',  bg: 'bg-slate-50' },
+  Phone:      { icon: <Smartphone size={13} />, color: 'text-emerald-600',bg: 'bg-emerald-50' },
+  Tablet:     { icon: <Smartphone size={13} />, color: 'text-teal-600',   bg: 'bg-teal-50' },
+  Monitor:    { icon: <Monitor size={13} />,    color: 'text-indigo-600', bg: 'bg-indigo-50' },
+  Printer:    { icon: <Printer size={13} />,    color: 'text-orange-600', bg: 'bg-orange-50' },
+  Network:    { icon: <Network size={13} />,    color: 'text-cyan-600',   bg: 'bg-cyan-50' },
+  Peripheral: { icon: <Package size={13} />,    color: 'text-amber-600',  bg: 'bg-amber-50' },
+  Other:      { icon: <Package size={13} />,    color: 'text-gray-500',   bg: 'bg-gray-50' },
+};
+
+function groupAssets(assets: Asset[]) {
+  // location → device type → assets
+  const byLocation = new Map<string, Map<string, Asset[]>>();
+  for (const a of assets) {
+    const loc = a.location || 'Unknown Location';
+    if (!byLocation.has(loc)) byLocation.set(loc, new Map());
+    const byType = byLocation.get(loc)!;
+    if (!byType.has(a.type)) byType.set(a.type, []);
+    byType.get(a.type)!.push(a);
+  }
+  // Sort locations; sort types within each location by TYPE_ORDER
+  const sorted = [...byLocation.entries()].sort(([a], [b]) => a.localeCompare(b));
+  return sorted.map(([loc, byType]) => {
+    const types = TYPE_ORDER
+      .filter((t) => byType.has(t))
+      .map((t) => ({ type: t, assets: byType.get(t)! }));
+    const totalCost = [...byType.values()].flat().reduce((s, a) => s + a.cost, 0);
+    const totalCount = [...byType.values()].flat().length;
+    return { loc, types, totalCost, totalCount };
+  });
+}
+
+function AssetCard({ asset, onClick }: { asset: Asset; onClick: () => void }) {
+  const meta = TYPE_META[asset.type] ?? TYPE_META.Other;
+  const warrantyDays = Math.ceil((new Date(asset.warrantyExpiry).getTime() - Date.now()) / 86400000);
+  const warrantyWarning = asset.warrantyExpiry && warrantyDays < 90;
+  return (
+    <div
+      onClick={onClick}
+      className="bg-white border border-gray-200 rounded-xl p-4 hover:border-blue-300 hover:shadow-md transition-all duration-150 cursor-pointer group"
+    >
+      <div className="flex items-start gap-3">
+        <div className={clsx('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', meta.bg)}>
+          <span className={meta.color}>{meta.icon}</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors">{asset.name}</p>
+          <p className="text-xs text-gray-400 truncate">{asset.make} {asset.model}</p>
+        </div>
+        <StatusBadge status={asset.status} />
+      </div>
+
+      <div className="mt-3 space-y-1.5">
+        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+          <User size={10} className="shrink-0 text-gray-400" />
+          {asset.assignedTo
+            ? <span className="truncate font-medium text-gray-700">{asset.assignedTo}</span>
+            : <span className="text-gray-400 italic">Unassigned</span>}
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+          <MapPin size={10} className="shrink-0 text-gray-400" />
+          <span className="truncate">{asset.location}</span>
+        </div>
+      </div>
+
+      <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          <code className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">{asset.tag}</code>
+          {asset.detectionSource && asset.detectionSource !== 'Manual' && (
+            <span className="text-[9px] bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded font-medium uppercase">
+              {asset.detectionSource.includes('Intune') ? 'Intune' : asset.detectionSource.includes('Ninja') ? 'Ninja' : asset.detectionSource.includes('Agent') ? 'Agent' : asset.detectionSource}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          {warrantyWarning && (
+            <span className={clsx('text-[10px] font-medium', warrantyDays < 0 ? 'text-red-500' : 'text-yellow-600')}>
+              {warrantyDays < 0 ? 'Expired' : `${warrantyDays}d`}
+            </span>
+          )}
+          <div className="flex items-center gap-0.5 text-xs font-semibold text-gray-700">
+            <DollarSign size={10} className="text-gray-400" />
+            {asset.cost.toLocaleString()}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AssetList() {
   const navigate = useNavigate();
   const { assets, people, deleteAsset, updateAsset, bulkUpdateAssets, importAssets, addToast, currentUserRole } = useStore();
@@ -74,6 +173,10 @@ export function AssetList() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
   const [newAsset, setNewAsset] = useState<Partial<Asset>>({ status: 'In Stock', type: 'Laptop', currency: 'USD', cost: 0 });
+
+  // Bulk edit state
+  const [viewMode, setViewMode] = useState<'grouped' | 'list'>('grouped');
+  const [collapsedLocations, setCollapsedLocations] = useState<Set<string>>(new Set());
 
   // Bulk edit state
   const [showBulkEdit, setShowBulkEdit] = useState(false);
@@ -344,14 +447,33 @@ export function AssetList() {
             />
           </div>
 
+          <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setViewMode('grouped')}
+              title="Grouped view"
+              className={clsx('px-2.5 py-1.5 flex items-center gap-1 text-xs font-medium transition-colors', viewMode === 'grouped' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50')}
+            >
+              <LayoutGrid size={14} />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              title="List view"
+              className={clsx('px-2.5 py-1.5 flex items-center gap-1 text-xs font-medium transition-colors border-l border-gray-200', viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50')}
+            >
+              <List size={14} />
+            </button>
+          </div>
+
           <button onClick={() => setShowFilters(!showFilters)} className={clsx('btn-secondary', showFilters && 'bg-blue-50 border-blue-200 text-blue-700')}>
             <Filter size={14} /> Filters
             {(typeFilter || locationFilter) && <span className="w-1.5 h-1.5 rounded-full bg-blue-600 ml-0.5" />}
           </button>
 
-          <button onClick={() => setShowColumnPicker(!showColumnPicker)} className="btn-secondary">
-            <SlidersHorizontal size={14} /> Columns
-          </button>
+          {viewMode === 'list' && (
+            <button onClick={() => setShowColumnPicker(!showColumnPicker)} className="btn-secondary">
+              <SlidersHorizontal size={14} /> Columns
+            </button>
+          )}
 
           {/* Bulk actions */}
           {selectedIds.length > 0 && (
@@ -426,24 +548,119 @@ export function AssetList() {
           </div>
         )}
 
-        {/* Table */}
-        <DataTable
-          data={filtered}
-          columns={visibleColumns}
-          onRowClick={(row) => { void navigate(`/assets/${row.id}`); }}
-          selectable
-          selectedIds={selectedIds}
-          onSelectionChange={setSelectedIds}
-          emptyState={
-            <EmptyState
-              icon={Monitor}
-              title="No assets found"
-              description={search || statusFilter || typeFilter ? 'Try adjusting your search or filters' : 'Add your first asset to get started'}
-              action={!search && !statusFilter && !typeFilter ? { label: '+ Add Asset', onClick: () => setShowAddModal(true) } : undefined}
-            />
-          }
-        />
+        {/* Table (list mode) */}
+        {viewMode === 'list' && (
+          <DataTable
+            data={filtered}
+            columns={visibleColumns}
+            onRowClick={(row) => { void navigate(`/assets/${row.id}`); }}
+            selectable
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+            emptyState={
+              <EmptyState
+                icon={Monitor}
+                title="No assets found"
+                description={search || statusFilter || typeFilter ? 'Try adjusting your search or filters' : 'Add your first asset to get started'}
+                action={!search && !statusFilter && !typeFilter ? { label: '+ Add Asset', onClick: () => setShowAddModal(true) } : undefined}
+              />
+            }
+          />
+        )}
       </div>
+
+      {/* Grouped blocks (grouped mode) */}
+      {viewMode === 'grouped' && (() => {
+        const groups = groupAssets(filtered);
+        if (groups.length === 0) {
+          return (
+            <div className="card p-12 text-center">
+              <Monitor size={36} className="text-gray-200 mx-auto mb-3" />
+              <p className="text-sm font-medium text-gray-500">No assets found</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {search || statusFilter || typeFilter ? 'Try adjusting your filters' : 'Add your first asset to get started'}
+              </p>
+            </div>
+          );
+        }
+        return (
+          <div className="space-y-4">
+            {groups.map(({ loc, types, totalCost, totalCount }) => {
+              const isCollapsed = collapsedLocations.has(loc);
+              const toggleCollapse = () => setCollapsedLocations((prev) => {
+                const next = new Set(prev);
+                next.has(loc) ? next.delete(loc) : next.add(loc);
+                return next;
+              });
+              return (
+                <div key={loc} className="card overflow-hidden">
+                  {/* Location header */}
+                  <button
+                    onClick={toggleCollapse}
+                    className="w-full flex items-center gap-3 px-5 py-3.5 bg-gray-50 border-b border-gray-100 hover:bg-gray-100/60 transition-colors text-left"
+                  >
+                    {isCollapsed ? <ChevronRight size={14} className="text-gray-400 shrink-0" /> : <ChevronDown size={14} className="text-gray-400 shrink-0" />}
+                    <MapPin size={14} className="text-blue-500 shrink-0" />
+                    <span className="flex-1 text-sm font-semibold text-gray-800">{loc}</span>
+                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <span className="font-semibold text-gray-700">{totalCount}</span> assets
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <DollarSign size={10} />
+                        <span className="font-semibold text-gray-700">{totalCost.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span> total value
+                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {types.map(({ type, assets: ta }) => {
+                          const m = TYPE_META[type] ?? TYPE_META.Other;
+                          return (
+                            <span key={type} className={clsx('flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full', m.bg, m.color)}>
+                              {m.icon} {type} ({ta.length})
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Device type groups */}
+                  {!isCollapsed && (
+                    <div className="divide-y divide-gray-50">
+                      {types.map(({ type, assets: typeAssets }) => {
+                        const meta = TYPE_META[type] ?? TYPE_META.Other;
+                        return (
+                          <div key={type} className="p-5">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className={clsx('w-6 h-6 rounded-md flex items-center justify-center', meta.bg)}>
+                                <span className={meta.color}>{meta.icon}</span>
+                              </div>
+                              <span className="text-xs font-semibold text-gray-700">{type}s</span>
+                              <span className="text-xs text-gray-400">({typeAssets.length})</span>
+                              <div className="flex-1 h-px bg-gray-100 ml-1" />
+                              <span className="text-xs text-gray-400">
+                                {typeAssets.filter((a) => a.assignedTo).length} assigned · {typeAssets.filter((a) => !a.assignedTo).length} unassigned
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                              {typeAssets.map((asset) => (
+                                <AssetCard
+                                  key={asset.id}
+                                  asset={asset}
+                                  onClick={() => { void navigate(`/assets/${asset.id}`); }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Add Asset Modal */}
       <Modal
