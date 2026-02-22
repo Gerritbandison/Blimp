@@ -134,15 +134,25 @@ router.post('/intune/sync', authenticate, requireRole('Admin', 'ITManager'), asy
 
     for (const device of devices) {
       const assetData = intuneDeviceToAssetData(device);
+
+      // Resolve person by userPrincipalName (email)
+      let personLink: { assignedToId: string; assignedTo: string } | undefined;
+      if (device.userPrincipalName) {
+        const person = await prisma.person.findFirst({
+          where: { email: { equals: device.userPrincipalName, mode: 'insensitive' } },
+        });
+        if (person) personLink = { assignedToId: person.id, assignedTo: person.name };
+      }
+
       const existing = await prisma.asset.findFirst({
         where: { serial: assetData.serial, detectionSource: 'Microsoft Intune' },
       });
 
       if (existing) {
-        await prisma.asset.update({ where: { id: existing.id }, data: assetData });
+        await prisma.asset.update({ where: { id: existing.id }, data: { ...assetData, ...personLink } });
         assetsUpdated++;
       } else {
-        await prisma.asset.create({ data: assetData as Parameters<typeof prisma.asset.create>[0]['data'] });
+        await prisma.asset.create({ data: { ...(assetData as Parameters<typeof prisma.asset.create>[0]['data']), ...personLink } });
         assetsAdded++;
       }
     }
@@ -273,15 +283,25 @@ router.post('/ninjaone/sync', authenticate, requireRole('Admin', 'ITManager'), a
 
     for (const device of devices) {
       const assetData = ninjaDeviceToAssetData(device);
+
+      // Resolve person by assignedUser display name
+      let personLink: { assignedToId: string; assignedTo: string } | undefined;
+      if (device.assignedUser) {
+        const person = await prisma.person.findFirst({
+          where: { name: { equals: device.assignedUser, mode: 'insensitive' } },
+        });
+        if (person) personLink = { assignedToId: person.id, assignedTo: person.name };
+      }
+
       const existing = await prisma.asset.findFirst({
         where: { serial: assetData.serial, detectionSource: 'NinjaOne' },
       });
 
       if (existing) {
-        await prisma.asset.update({ where: { id: existing.id }, data: assetData });
+        await prisma.asset.update({ where: { id: existing.id }, data: { ...assetData, ...personLink } });
         assetsUpdated++;
       } else {
-        await prisma.asset.create({ data: assetData as Parameters<typeof prisma.asset.create>[0]['data'] });
+        await prisma.asset.create({ data: { ...(assetData as Parameters<typeof prisma.asset.create>[0]['data']), ...personLink } });
         assetsAdded++;
       }
     }

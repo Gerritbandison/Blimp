@@ -102,6 +102,11 @@ model Asset {
   lessor          String?
   monthlyPayment  Float?
 
+  // Self-relation: link monitors / peripherals to their parent device
+  parentAssetId String?
+  parentAsset   Asset?  @relation("AssetChildren", fields: [parentAssetId], references: [id], onDelete: SetNull)
+  childAssets   Asset[] @relation("AssetChildren")
+
   // Relations
   lifecycle   LifecycleEvent[]
   activities  ActivityEntry[]  @relation("AssetActivities")
@@ -114,6 +119,7 @@ model Asset {
   @@index([type])
   @@index([assignedToId])
   @@index([serial])
+  @@index([parentAssetId])
 }
 
 model LifecycleEvent {

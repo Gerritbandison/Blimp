@@ -7,6 +7,7 @@ import {
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Tabs } from '../../components/common/Tabs';
 import { useStore } from '../../store/useStore';
+import { PersonITProfile } from '../../components/people/PersonITProfile';
 import { mockOnboardingKits } from '../../data/mockData';
 import { format } from 'date-fns';
 import { clsx } from 'clsx';
@@ -14,6 +15,7 @@ import type { PersonStatus } from '../../types';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
+  { id: 'it-profile', label: 'IT Profile' },
   { id: 'assets', label: 'Assets' },
   { id: 'apps', label: 'Apps & Licenses' },
   { id: 'financial', label: 'Financial' },
@@ -274,6 +276,10 @@ export function PersonDetail() {
               )}
             </div>
           </div>
+        )}
+
+        {activeTab === 'it-profile' && (
+          <PersonITProfile person={person} />
         )}
 
         {activeTab === 'assets' && (
