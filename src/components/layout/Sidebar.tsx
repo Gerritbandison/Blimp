@@ -2,22 +2,53 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Monitor, Users, AppWindow, BarChart3,
   Settings, Link2, ClipboardList, ChevronLeft, ChevronRight,
-  Server, LogOut,
+  Server, LogOut, DollarSign,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useStore } from '../../store/useStore';
 import { useAuth } from '../../auth/useAuth';
 import { useState } from 'react';
 
-const NAV_ITEMS = [
-  { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
-  { label: 'Assets', icon: Monitor, path: '/assets' },
-  { label: 'People', icon: Users, path: '/people' },
-  { label: 'Apps', icon: AppWindow, path: '/apps' },
-  { label: 'Reports', icon: BarChart3, path: '/reports' },
-  { label: 'Integrations', icon: Link2, path: '/integrations' },
-  { label: 'Audit Log', icon: ClipboardList, path: '/audit-log' },
-  { label: 'Settings', icon: Settings, path: '/settings' },
+interface NavItem {
+  label: string;
+  icon: typeof LayoutDashboard;
+  path: string;
+}
+
+interface NavSection {
+  title?: string;
+  items: NavItem[];
+}
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    items: [
+      { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
+    ],
+  },
+  {
+    title: 'Management',
+    items: [
+      { label: 'Assets', icon: Monitor, path: '/assets' },
+      { label: 'People', icon: Users, path: '/people' },
+      { label: 'Apps', icon: AppWindow, path: '/apps' },
+    ],
+  },
+  {
+    title: 'Finance & Analytics',
+    items: [
+      { label: 'Spend', icon: DollarSign, path: '/spend' },
+      { label: 'Reports', icon: BarChart3, path: '/reports' },
+    ],
+  },
+  {
+    title: 'System',
+    items: [
+      { label: 'Integrations', icon: Link2, path: '/integrations' },
+      { label: 'Audit Log', icon: ClipboardList, path: '/audit-log' },
+      { label: 'Settings', icon: Settings, path: '/settings' },
+    ],
+  },
 ];
 
 export function Sidebar() {
@@ -47,32 +78,44 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-3 px-3 space-y-0.5 overflow-y-auto" role="navigation" aria-label="Main navigation" style={{ scrollbarWidth: 'none' }}>
-        {NAV_ITEMS.map(({ label, icon: Icon, path }) => (
-          <NavLink
-            key={path}
-            to={path}
-            end={path === '/'}
-            className={({ isActive }) =>
-              clsx(
-                'group flex items-center gap-3 rounded-lg transition-all duration-150 relative',
-                collapsed ? 'justify-center px-0 py-2.5 mx-auto w-10 h-10' : 'px-3 py-2',
-                isActive
-                  ? 'bg-blue-500/[0.12] text-blue-400'
-                  : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-blue-400 rounded-r-full" />
-                )}
-                <Icon size={18} className={clsx('flex-shrink-0', isActive ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300')} />
-                {!collapsed && <span className="text-[13px] font-medium truncate">{label}</span>}
-              </>
+      <nav className="flex-1 py-3 px-3 space-y-3 overflow-y-auto" role="navigation" aria-label="Main navigation" style={{ scrollbarWidth: 'none' }}>
+        {NAV_SECTIONS.map((section, si) => (
+          <div key={si}>
+            {section.title && !collapsed && (
+              <p className="px-3 pt-1 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500/70">{section.title}</p>
             )}
-          </NavLink>
+            {section.title && collapsed && si > 0 && (
+              <div className="mx-3 my-1.5 h-px bg-white/[0.06]" />
+            )}
+            <div className="space-y-0.5">
+              {section.items.map(({ label, icon: Icon, path }) => (
+                <NavLink
+                  key={path}
+                  to={path}
+                  end={path === '/'}
+                  className={({ isActive }) =>
+                    clsx(
+                      'group flex items-center gap-3 rounded-lg transition-all duration-150 relative',
+                      collapsed ? 'justify-center px-0 py-2.5 mx-auto w-10 h-10' : 'px-3 py-2',
+                      isActive
+                        ? 'bg-blue-500/[0.12] text-blue-400'
+                        : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      {isActive && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-blue-400 rounded-r-full" />
+                      )}
+                      <Icon size={18} className={clsx('flex-shrink-0', isActive ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300')} />
+                      {!collapsed && <span className="text-[13px] font-medium truncate">{label}</span>}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 

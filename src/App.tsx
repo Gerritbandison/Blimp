@@ -34,6 +34,7 @@ const AppList     = lazy(() => import('./pages/Apps/AppList').then((m) => ({ def
 const AppDetail   = lazy(() => import('./pages/Apps/AppDetail').then((m) => ({ default: m.AppDetail })));
 const PeopleList  = lazy(() => import('./pages/People/PeopleList').then((m) => ({ default: m.PeopleList })));
 const PersonDetail = lazy(() => import('./pages/People/PersonDetail').then((m) => ({ default: m.PersonDetail })));
+const Spend       = lazy(() => import('./pages/Spend').then((m) => ({ default: m.Spend })));
 const Reports     = lazy(() => import('./pages/Reports').then((m) => ({ default: m.Reports })));
 const Integrations = lazy(() => import('./pages/Integrations').then((m) => ({ default: m.Integrations })));
 const Settings    = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
@@ -64,6 +65,7 @@ export default function App() {
             <Route path="apps/:id" element={<AppDetail />} />
             <Route path="people" element={<PeopleList />} />
             <Route path="people/:id" element={<PersonDetail />} />
+            <Route path="spend" element={<Spend />} />
             <Route path="reports" element={<Reports />} />
             <Route path="integrations" element={<Integrations />} />
             <Route path="audit-log" element={<AuditLog />} />

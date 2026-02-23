@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   Monitor, AppWindow, Users, DollarSign, AlertTriangle,
   Clock, CheckCircle, TrendingUp, BarChart2, Activity,
-  RefreshCw, ChevronRight, Bell
+  RefreshCw, ChevronRight, Bell, Plus, UserPlus, FileSearch,
+  Link2, BarChart3, ArrowRight, ShieldCheck,
 } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -160,6 +161,33 @@ export function Dashboard() {
         <StatCard title="Total People" value={people.length} icon={Users} iconColor="text-green-600" iconBg="bg-green-50" subtitle={`${totalPeople} active`} onClick={() => { void navigate('/people'); }} />
         <StatCard title="Monthly IT Spend" value={`$${Math.round(monthlySoftwareCost + monthlyHardwareCost).toLocaleString('en-US')}`} icon={DollarSign} iconColor="text-yellow-600" iconBg="bg-yellow-50" trend={{ value: 3.2, label: 'vs last month', positive: false }} />
         <StatCard title="Needs Action" value={needAction + upcomingRenewals.length + lowStockGroups.length} icon={AlertTriangle} iconColor="text-red-600" iconBg="bg-red-50" subtitle="Repairs, renewals, warnings" />
+      </div>
+
+      {/* Quick-links row (Setyl-style) */}
+      <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
+        {[
+          { label: 'Add Asset',        icon: Plus,       path: '/assets',        bg: 'bg-blue-50',   color: 'text-blue-600',  border: 'border-blue-100' },
+          { label: 'Onboard User',     icon: UserPlus,   path: '/people',        bg: 'bg-green-50',  color: 'text-green-600', border: 'border-green-100' },
+          { label: 'Review Licences',  icon: FileSearch, path: '/apps',          bg: 'bg-purple-50', color: 'text-purple-600',border: 'border-purple-100' },
+          { label: 'IT Spend',         icon: DollarSign, path: '/spend',         bg: 'bg-yellow-50', color: 'text-yellow-600',border: 'border-yellow-100' },
+          { label: 'Integrations',     icon: Link2,      path: '/integrations',  bg: 'bg-orange-50', color: 'text-orange-600',border: 'border-orange-100' },
+          { label: 'Reports',          icon: BarChart3,  path: '/reports',       bg: 'bg-cyan-50',   color: 'text-cyan-600',  border: 'border-cyan-100' },
+        ].map((q) => (
+          <button
+            key={q.path}
+            onClick={() => { void navigate(q.path); }}
+            className={clsx(
+              'flex items-center gap-2.5 p-3 rounded-xl border transition-all duration-150 hover:shadow-md hover:-translate-y-0.5 text-left group',
+              q.bg, q.border
+            )}
+          >
+            <div className={clsx('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', q.bg)}>
+              <q.icon size={15} className={q.color} />
+            </div>
+            <span className="text-xs font-semibold text-gray-700 group-hover:text-gray-900 flex-1">{q.label}</span>
+            <ArrowRight size={12} className="text-gray-300 group-hover:text-gray-500 shrink-0 transition-colors" />
+          </button>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -343,6 +371,74 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Savings opportunity + integration status */}
+      {(() => {
+        const unusedLicenses = apps.reduce((s: number, a: App) => s + (a.totalLicenses - a.assignedLicenses), 0);
+        const wastedSpend = apps.reduce((s: number, a: App) => {
+          const unused = a.totalLicenses - a.assignedLicenses;
+          const annual = a.billingCycle === 'annual' ? a.costPerLicense : a.costPerLicense * 12;
+          return s + unused * annual;
+        }, 0);
+        const integrations = useStore.getState().integrations;
+        const connected = integrations.filter((i) => i.status === 'Connected').length;
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {wastedSpend > 0 && (
+              <div className="card p-5 border-amber-200 bg-amber-50/30">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                    <DollarSign size={18} className="text-amber-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold text-gray-900">Savings Opportunity</h3>
+                    <p className="text-xs text-gray-600 mt-1">
+                      You have <span className="font-bold text-amber-700">{unusedLicenses} unused licences</span> across {apps.filter((a: App) => a.totalLicenses > a.assignedLicenses).length} apps,
+                      costing <span className="font-bold text-amber-700">${wastedSpend.toLocaleString()}/year</span> in wasted spend.
+                    </p>
+                    <button
+                      onClick={() => { void navigate('/spend'); }}
+                      className="mt-2 text-xs font-medium text-amber-700 hover:text-amber-900 flex items-center gap-1"
+                    >
+                      Review in Spend <ArrowRight size={11} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="card p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900">Integrations</h3>
+                <button onClick={() => { void navigate('/integrations'); }} className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                  Manage <ArrowRight size={10} />
+                </button>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={14} className="text-green-500" />
+                  <span className="text-xs text-gray-600"><span className="font-semibold text-gray-900">{connected}</span> connected</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-gray-300" />
+                  <span className="text-xs text-gray-600"><span className="font-semibold text-gray-900">{integrations.length - connected}</span> available</span>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {integrations.slice(0, 6).map((intg) => (
+                  <span key={intg.id} className={clsx(
+                    'text-[10px] font-medium px-2 py-1 rounded-full border',
+                    intg.status === 'Connected' ? 'bg-green-50 text-green-700 border-green-200'
+                      : intg.status === 'Error' ? 'bg-red-50 text-red-600 border-red-200'
+                      : 'bg-gray-50 text-gray-500 border-gray-200'
+                  )}>
+                    {intg.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
