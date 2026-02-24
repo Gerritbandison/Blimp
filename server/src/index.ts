@@ -8,6 +8,7 @@ import appsRouter from './routes/apps.js';
 import peopleRouter from './routes/people.js';
 import integrationsRouter from './routes/integrations.js';
 import activityRouter from './routes/activity.js';
+import agentRouter from './routes/agent.js';
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use('/apps', appsRouter);
 app.use('/people', peopleRouter);
 app.use('/integrations', integrationsRouter);
 app.use('/activity', activityRouter);
+app.use('/agent', agentRouter);
 
 // ─── Error handler (must be last) ───────────────────────────────────────────
 

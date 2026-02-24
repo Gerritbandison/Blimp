@@ -375,6 +375,28 @@ model ActivityEntry {
   @@index([userId])
 }
 
+// ─── Agent Devices ────────────────────────────────────────────────────────────
+
+model AgentDevice {
+  id          String    @id @default(cuid())
+  name        String                         // friendly name, e.g. "Alice's ThinkPad"
+  tokenHash   String    @unique              // bcrypt hash of the full token
+  tokenPrefix String                         // first 12 chars of token for fast lookup
+  platform    String?                        // 'Windows' | 'macOS' | 'Linux'
+  hostname    String?                        // last known hostname
+  lastSeen    DateTime?
+  lastReport  DateTime?
+  reportCount Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdBy   String?                        // userId of admin who created it
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tokenPrefix])
+  @@index([isActive])
+}
+
 // ─── Settings ────────────────────────────────────────────────────────────────
 
 model CompanySettings {

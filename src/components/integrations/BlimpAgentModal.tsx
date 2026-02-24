@@ -1,13 +1,30 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   CheckCircle, Download, Upload, Monitor, Cpu, HardDrive, Wifi,
   AlertCircle, RefreshCw, Usb, Keyboard, Mouse, Server, FlaskConical,
+  Key, Plus, Trash2, Copy, Shield,
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { clsx } from 'clsx';
 import type { AgentReport, AgentPeripheral } from '../../types';
 import { parseAgentReport, buildAssetsFromReport } from '../../utils/agentImport';
 import { THINKPAD_E14_AGENT_REPORT } from '../../data/lenovoScenario';
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
+const API_ENABLED = !!API_BASE;
+
+interface AgentDeviceRecord {
+  id: string;
+  name: string;
+  tokenPrefix: string;
+  platform: string | null;
+  hostname: string | null;
+  lastSeen: string | null;
+  lastReport: string | null;
+  reportCount: number;
+  isActive: boolean;
+  createdAt: string;
+}
 
 interface Props {
   open: boolean;
@@ -16,7 +33,7 @@ interface Props {
   onImport: (report: AgentReport) => void;
 }
 
-type Tab = 'install' | 'import' | 'discover';
+type Tab = 'install' | 'import' | 'discover' | 'devices';
 
 const INSTALL_TABS = [
   { id: 'macos', label: 'macOS' },
@@ -25,17 +42,20 @@ const INSTALL_TABS = [
 ] as const;
 type OS = typeof INSTALL_TABS[number]['id'];
 
-const INSTALL_COMMANDS: Record<OS, { run: string; service: string }> = {
+const INSTALL_COMMANDS: Record<OS, { run: string; push: string; service: string }> = {
   macos: {
-    run: 'python3 blimp_agent.py -o report.json',
+    run:     'python3 blimp_agent.py -o report.json',
+    push:    'python3 blimp_agent.py --push --blimp-url https://YOUR-SERVER --blimp-token YOUR_TOKEN',
     service: 'sudo bash install-macos.sh',
   },
   windows: {
-    run: 'python blimp_agent.py -o report.json',
+    run:     'python blimp_agent.py -o report.json',
+    push:    'python blimp_agent.py --push --blimp-url https://YOUR-SERVER --blimp-token YOUR_TOKEN',
     service: 'powershell -File install-windows.ps1',
   },
   linux: {
-    run: 'python3 blimp_agent.py -o report.json',
+    run:     'python3 blimp_agent.py -o report.json',
+    push:    'python3 blimp_agent.py --push --blimp-url https://YOUR-SERVER --blimp-token YOUR_TOKEN',
     service: 'python3 blimp_agent.py --server',
   },
 };
@@ -86,6 +106,79 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
   const [discovering, setDiscovering] = useState(false);
   const [discoverResult, setDiscoverResult] = useState<'found' | 'not-found' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // ── Devices tab state ────────────────────────────────────────────────────
+  const [devices, setDevices] = useState<AgentDeviceRecord[]>([]);
+  const [newDeviceName, setNewDeviceName] = useState('');
+  const [generatedToken, setGeneratedToken] = useState<{ id: string; name: string; token: string } | null>(null);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+  const [devicesError, setDevicesError] = useState('');
+  const [revoking, setRevoking] = useState<string | null>(null);
+  const [tokenCopied, setTokenCopied] = useState(false);
+
+  const fetchDevices = useCallback(async () => {
+    if (!API_ENABLED) return;
+    setDevicesLoading(true);
+    setDevicesError('');
+    try {
+      const res = await fetch(`${API_BASE}/agent/devices`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`${res.status}`);
+      setDevices(await res.json() as AgentDeviceRecord[]);
+    } catch {
+      setDevicesError('Could not load devices. Check server connection.');
+    } finally {
+      setDevicesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'devices' && API_ENABLED) {
+      void fetchDevices();
+    }
+  }, [activeTab, fetchDevices]);
+
+  async function generateDeviceToken() {
+    if (!newDeviceName.trim() || !API_ENABLED) return;
+    setDevicesLoading(true);
+    setDevicesError('');
+    try {
+      const res = await fetch(`${API_BASE}/agent/devices`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newDeviceName.trim() }),
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const data = await res.json() as { id: string; name: string; token: string };
+      setGeneratedToken(data);
+      setNewDeviceName('');
+      void fetchDevices();
+    } catch {
+      setDevicesError('Could not create token. Check server connection.');
+    } finally {
+      setDevicesLoading(false);
+    }
+  }
+
+  async function revokeDevice(id: string) {
+    if (!API_ENABLED) return;
+    setRevoking(id);
+    try {
+      await fetch(`${API_BASE}/agent/devices/${id}`, { method: 'DELETE', credentials: 'include' });
+      setDevices((ds) => ds.filter((d) => d.id !== id));
+      if (generatedToken?.id === id) setGeneratedToken(null);
+    } catch {
+      // silently ignore — user can retry
+    } finally {
+      setRevoking(null);
+    }
+  }
+
+  function copyToken(token: string) {
+    void navigator.clipboard.writeText(token);
+    setTokenCopied(true);
+    setTimeout(() => setTokenCopied(false), 2000);
+  }
 
   function handleJsonChange(val: string) {
     setJsonText(val);
@@ -167,8 +260,13 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
     <Modal open={open} onClose={onClose} title="Blimp Agent" size="lg" footer={footer}>
       <div className="space-y-4">
         {/* Tabs */}
-        <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit">
-          {([['install', 'Install Agent'], ['import', 'Import Report'], ['discover', 'Auto-Discover']] as const).map(([id, label]) => (
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit flex-wrap">
+          {([
+            ['install', 'Install Agent'],
+            ['import', 'Import Report'],
+            ['discover', 'Auto-Discover'],
+            ['devices', 'Devices & Tokens'],
+          ] as const).map(([id, label]) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
@@ -236,11 +334,25 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
             {/* Always-on service */}
             <div>
               <p className="text-xs font-semibold text-gray-700 mb-1.5">
-                Option B — Install as a background service (recommended)
+                Option B — Install as a background service
               </p>
               <CodeBlock code={cmds.service} />
               <p className="text-xs text-gray-400 mt-1">
                 Runs on port {AGENT_PORT}. Use <strong>Auto-Discover</strong> to pull data automatically when the machine is on the same network.
+              </p>
+            </div>
+
+            {/* Push to server */}
+            <div>
+              <p className="text-xs font-semibold text-gray-700 mb-1.5">
+                Option C — Push directly to this Blimp server <span className="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-medium">recommended</span>
+              </p>
+              <p className="text-xs text-gray-500 mb-2">
+                Generate a device token in the <button className="underline text-blue-600 hover:text-blue-800" onClick={() => setActiveTab('devices')}>Devices & Tokens</button> tab, then run:
+              </p>
+              <CodeBlock code={cmds.push} />
+              <p className="text-xs text-gray-400 mt-1">
+                Reports push automatically to this Blimp instance. No file upload needed. Token is stored in <code>~/.blimp/agent.conf</code> for future runs.
               </p>
             </div>
 
@@ -380,6 +492,154 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
                   </p>
                 )}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Devices & Tokens tab */}
+        {activeTab === 'devices' && (
+          <div className="space-y-4">
+            {!API_ENABLED ? (
+              <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                <Shield size={14} className="flex-shrink-0 mt-0.5 text-amber-600" />
+                <div>
+                  <p className="font-semibold mb-1">API not connected</p>
+                  <p>
+                    Device token management requires a running Blimp server. Set <code className="bg-amber-100 px-1 rounded">VITE_API_BASE_URL</code> in your <code className="bg-amber-100 px-1 rounded">.env</code> file to enable this feature.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-gray-500">
+                  Generate per-device API tokens so agents can push reports directly to this server. Each token is shown only once — store it securely or save it with <code className="bg-gray-100 px-1 rounded">--save-config</code>.
+                </p>
+
+                {/* Generate token form */}
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+                  <p className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                    <Key size={12} className="text-blue-500" /> Generate New Device Token
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Device name (e.g. Alice's ThinkPad)"
+                      value={newDeviceName}
+                      onChange={(e) => setNewDeviceName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') void generateDeviceToken(); }}
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      maxLength={100}
+                    />
+                    <button
+                      className="btn-primary text-xs py-2 px-3 flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50"
+                      onClick={() => void generateDeviceToken()}
+                      disabled={!newDeviceName.trim() || devicesLoading}
+                    >
+                      <Plus size={12} /> Generate
+                    </button>
+                  </div>
+                </div>
+
+                {devicesError && (
+                  <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
+                    <AlertCircle size={13} /> {devicesError}
+                  </div>
+                )}
+
+                {/* Newly generated token — shown once */}
+                {generatedToken && (
+                  <div className="p-4 bg-green-50 border border-green-300 rounded-xl space-y-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle size={14} className="text-green-600 flex-shrink-0" />
+                      <p className="text-xs font-semibold text-green-800">
+                        Token generated for <strong>{generatedToken.name}</strong> — copy it now, it won't be shown again
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 bg-white border border-green-300 rounded-lg px-3 py-2 text-xs font-mono text-gray-800 overflow-x-auto">
+                        {generatedToken.token}
+                      </code>
+                      <button
+                        onClick={() => copyToken(generatedToken.token)}
+                        className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                      >
+                        <Copy size={11} /> {tokenCopied ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-green-800">Quick setup (on the target machine):</p>
+                      <CodeBlock code={`python3 blimp_agent.py --save-config --blimp-url ${API_BASE ?? 'https://YOUR-SERVER'} --blimp-token ${generatedToken.token}`} />
+                      <p className="text-xs text-green-700 mt-1">
+                        After saving, future runs just need: <code className="bg-green-100 px-1 rounded">python3 blimp_agent.py --push</code>
+                      </p>
+                    </div>
+                    <button
+                      className="text-xs text-green-700 underline"
+                      onClick={() => setGeneratedToken(null)}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+
+                {/* Device list */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-gray-700">Registered Devices</p>
+                    <button
+                      onClick={() => void fetchDevices()}
+                      disabled={devicesLoading}
+                      className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
+                    >
+                      <RefreshCw size={11} className={devicesLoading ? 'animate-spin' : ''} />
+                      Refresh
+                    </button>
+                  </div>
+
+                  {devicesLoading && devices.length === 0 && (
+                    <div className="flex justify-center py-6">
+                      <RefreshCw size={16} className="animate-spin text-gray-400" />
+                    </div>
+                  )}
+
+                  {!devicesLoading && devices.length === 0 && (
+                    <div className="text-center py-8 text-xs text-gray-400">
+                      No devices registered yet. Generate a token above to add the first one.
+                    </div>
+                  )}
+
+                  {devices.map((device) => (
+                    <div key={device.id} className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl hover:border-gray-300 transition-colors">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                        <Server size={14} className="text-blue-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-gray-800">{device.name}</p>
+                        <p className="text-xs text-gray-400 truncate">
+                          {device.platform ?? 'Unknown OS'}
+                          {device.hostname ? ` · ${device.hostname}` : ''}
+                          {device.lastSeen ? ` · Last seen ${new Date(device.lastSeen).toLocaleDateString()}` : ' · Never connected'}
+                        </p>
+                        <p className="text-[10px] text-gray-400">
+                          {device.reportCount} report{device.reportCount !== 1 ? 's' : ''} · token prefix: <code>{device.tokenPrefix}…</code>
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => void revokeDevice(device.id)}
+                        disabled={revoking === device.id}
+                        className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Revoke token"
+                      >
+                        {revoking === device.id
+                          ? <RefreshCw size={11} className="animate-spin" />
+                          : <Trash2 size={11} />
+                        }
+                        Revoke
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}

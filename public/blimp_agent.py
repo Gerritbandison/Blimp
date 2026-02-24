@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Blimp Agent - Hardware Inventory Collector
-Version 1.1.0
+Version 1.2.0
 
 Cross-platform agent that collects:
   - Hardware info: make, model, serial number, CPU, RAM, storage
@@ -13,13 +13,23 @@ Cross-platform agent that collects:
 Outputs a JSON report conforming to the Blimp AgentReport schema.
 
 Usage:
-  python blimp_agent.py                      # Print JSON to stdout
-  python blimp_agent.py -o report.json       # Save to file
-  python blimp_agent.py --server             # HTTP server on port 51723
-  python blimp_agent.py --server --port 8080 # Custom port
+  python blimp_agent.py                           # Print JSON to stdout
+  python blimp_agent.py -o report.json            # Save to file
+  python blimp_agent.py --server                  # HTTP server on port 51723
+  python blimp_agent.py --server --port 8080      # Custom port
+  python blimp_agent.py --push                    # Push to Blimp server (uses config)
+  python blimp_agent.py --push \\
+    --blimp-url https://blimp.example.com \\
+    --blimp-token blmp_xxxx                       # Push with explicit credentials
+
+Configuration file (~/.blimp/agent.conf or BLIMP_CONFIG env var):
+  [blimp]
+  url   = https://your-blimp-server.com
+  token = blmp_your_token_here
 """
 
 import argparse
+import configparser
 import datetime
 import glob
 import hashlib
@@ -30,9 +40,11 @@ import re
 import socket
 import subprocess
 import sys
+import urllib.request
+import urllib.error
 from typing import Any, Dict, List, Optional
 
-AGENT_VERSION = "1.1.0"
+AGENT_VERSION = "1.2.0"
 AGENT_PORT = 51723
 SYSTEM = platform.system()  # 'Darwin', 'Windows', 'Linux'
 
@@ -970,6 +982,107 @@ def run_server(port: int = AGENT_PORT) -> None:
     HTTPServer(("localhost", port), Handler).serve_forever()
 
 
+# ─── Config loading ───────────────────────────────────────────────────────────
+
+def _default_config_path() -> str:
+    """Return the default config file path (~/.blimp/agent.conf)."""
+    return os.path.join(os.path.expanduser("~"), ".blimp", "agent.conf")
+
+
+def load_config(path: Optional[str] = None) -> Dict[str, str]:
+    """
+    Load Blimp agent configuration.
+
+    Priority (highest → lowest):
+      1. Explicit path argument
+      2. BLIMP_CONFIG environment variable
+      3. ~/.blimp/agent.conf
+      4. ./blimp_agent.conf (local directory)
+
+    Returns a dict with keys 'url' and 'token' (empty strings if not set).
+    """
+    cfg: Dict[str, str] = {"url": "", "token": ""}
+
+    candidates = [
+        path,
+        os.environ.get("BLIMP_CONFIG"),
+        _default_config_path(),
+        os.path.join(os.path.dirname(__file__), "blimp_agent.conf"),
+    ]
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+        if os.path.isfile(candidate):
+            parser = configparser.ConfigParser()
+            parser.read(candidate)
+            if parser.has_section("blimp"):
+                cfg["url"]   = parser.get("blimp", "url",   fallback="").strip().rstrip("/")
+                cfg["token"] = parser.get("blimp", "token", fallback="").strip()
+            break
+
+    # Environment variables override config file values
+    cfg["url"]   = os.environ.get("BLIMP_URL",   cfg["url"]).strip().rstrip("/")
+    cfg["token"] = os.environ.get("BLIMP_TOKEN", cfg["token"]).strip()
+
+    return cfg
+
+
+def save_config(url: str, token: str, path: Optional[str] = None) -> str:
+    """
+    Write (or overwrite) the agent config file.
+    Returns the path where it was saved.
+    """
+    save_path = path or _default_config_path()
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    content = f"[blimp]\nurl   = {url}\ntoken = {token}\n"
+    with open(save_path, "w", encoding="utf-8") as f:
+        f.write(content)
+    # Restrict permissions so only the owner can read the token
+    try:
+        os.chmod(save_path, 0o600)
+    except Exception:
+        pass
+    return save_path
+
+
+# ─── Push to server ───────────────────────────────────────────────────────────
+
+def push_report(
+    data: Dict[str, Any],
+    server_url: str,
+    token: str,
+    timeout: int = 30,
+) -> Dict[str, Any]:
+    """
+    POST the report JSON to the Blimp server.
+
+    Returns the parsed JSON response on success.
+    Raises RuntimeError with a human-readable message on failure.
+    """
+    url = f"{server_url.rstrip('/')}/agent/report"
+    payload = json.dumps(data).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type":  "application/json",
+            "X-Blimp-Token": token,
+            "User-Agent":    f"Blimp-Agent/{AGENT_VERSION}",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8")
+            return json.loads(body)
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Server returned HTTP {e.code}: {body}") from e
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Could not reach server at {url}: {e.reason}") from e
+
+
 # ─── Entry point ──────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -978,17 +1091,66 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("-o", "--output", metavar="FILE", help="Write JSON report to FILE instead of stdout")
-    parser.add_argument("--server", action="store_true", help=f"Run local HTTP server on port {AGENT_PORT}")
-    parser.add_argument("--port", type=int, default=AGENT_PORT, help=f"HTTP server port (default: {AGENT_PORT})")
-    parser.add_argument("--compact", action="store_true", help="Compact JSON (no indentation)")
+    parser.add_argument("-o", "--output",      metavar="FILE",  help="Write JSON report to FILE instead of stdout")
+    parser.add_argument("--server",            action="store_true", help=f"Run local HTTP server on port {AGENT_PORT}")
+    parser.add_argument("--port",              type=int, default=AGENT_PORT, help=f"HTTP server port (default: {AGENT_PORT})")
+    parser.add_argument("--compact",           action="store_true", help="Compact JSON (no indentation)")
+    # Push mode
+    parser.add_argument("--push",              action="store_true", help="Push report directly to the Blimp server")
+    parser.add_argument("--blimp-url",         metavar="URL",   help="Blimp server URL (overrides config/env)")
+    parser.add_argument("--blimp-token",       metavar="TOKEN", help="Device API token (overrides config/env)")
+    parser.add_argument("--config",            metavar="FILE",  help="Path to agent config file")
+    # Setup helper
+    parser.add_argument("--save-config",       action="store_true", help="Save --blimp-url and --blimp-token to config file and exit")
     args = parser.parse_args()
 
+    # ── Save config and exit ─────────────────────────────────────────────────
+    if args.save_config:
+        cfg = load_config(args.config)
+        url   = args.blimp_url   or cfg["url"]
+        token = args.blimp_token or cfg["token"]
+        if not url or not token:
+            print("Error: --blimp-url and --blimp-token are required with --save-config", file=sys.stderr)
+            sys.exit(1)
+        saved = save_config(url, token, args.config)
+        print(f"Config saved to: {saved}", file=sys.stderr)
+        return
+
+    # ── HTTP server mode ─────────────────────────────────────────────────────
     if args.server:
         run_server(args.port)
         return
 
+    # ── Collect hardware data ────────────────────────────────────────────────
     data = collect()
+
+    # ── Push mode ────────────────────────────────────────────────────────────
+    if args.push:
+        cfg   = load_config(args.config)
+        url   = args.blimp_url   or cfg["url"]
+        token = args.blimp_token or cfg["token"]
+
+        if not url:
+            print("Error: Blimp server URL not set. Use --blimp-url or add 'url' to ~/.blimp/agent.conf", file=sys.stderr)
+            sys.exit(1)
+        if not token:
+            print("Error: Agent token not set. Use --blimp-token or add 'token' to ~/.blimp/agent.conf", file=sys.stderr)
+            sys.exit(1)
+
+        print(f"Pushing report to {url} ...", file=sys.stderr)
+        try:
+            result = push_report(data, url, token)
+            print("Report accepted.", file=sys.stderr)
+            print(f"  Device asset ID  : {result.get('assetId', 'N/A')}", file=sys.stderr)
+            print(f"  Monitors added   : {result.get('monitorsAdded', 0)}", file=sys.stderr)
+            print(f"  Monitors updated : {result.get('monitorsUpdated', 0)}", file=sys.stderr)
+            print(f"  Peripherals added: {result.get('peripheralsAdded', 0)}", file=sys.stderr)
+        except RuntimeError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+        return
+
+    # ── File or stdout output ────────────────────────────────────────────────
     output = json.dumps(data, indent=None if args.compact else 2)
 
     if args.output:
