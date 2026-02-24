@@ -61,7 +61,7 @@ export type AppStatus = 'Active' | 'Inactive' | 'Pending' | 'Expired' | 'In Revi
 export type LicenseType = 'Per User' | 'Per Device' | 'Site' | 'Enterprise' | 'Open Source';
 export type LicenseStatus = 'Active' | 'Unused' | 'Pending' | 'Expired';
 export type DetectionSource = string;
-export type AppCategory = 'Productivity' | 'Development' | 'Design' | 'Communication' | 'Security' | 'HR' | 'Finance' | 'Marketing' | 'Analytics' | 'Infrastructure' | 'Business' | 'Other';
+export type AppCategory = 'Productivity' | 'Development' | 'Design' | 'Communication' | 'Security' | 'HR' | 'Finance' | 'Marketing' | 'Analytics' | 'Infrastructure' | 'Business' | 'Customer Support' | 'Insurance' | 'Other';
 
 export interface App {
   id: string;

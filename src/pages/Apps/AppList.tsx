@@ -86,7 +86,7 @@ const COLUMNS: Column<App>[] = [
   )},
 ];
 
-const APP_CATEGORIES: AppCategory[] = ['Productivity', 'Development', 'Design', 'Communication', 'Security', 'HR', 'Finance', 'Marketing', 'Analytics', 'Infrastructure', 'Other'];
+const APP_CATEGORIES: AppCategory[] = ['Productivity', 'Development', 'Design', 'Communication', 'Security', 'Customer Support', 'Insurance', 'HR', 'Finance', 'Marketing', 'Analytics', 'Infrastructure', 'Other'];
 
 export function AppList() {
   const navigate = useNavigate();

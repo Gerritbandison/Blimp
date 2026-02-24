@@ -18,14 +18,20 @@ const REPORT_SECTIONS = [
 ];
 
 const COMPLIANCE_VENDORS = [
-  { vendor: 'Slack', soc2: true, iso27001: true, gdpr: true, riskRating: 'Low', dpaStatus: 'Signed' },
-  { vendor: 'GitHub', soc2: true, iso27001: true, gdpr: true, riskRating: 'Low', dpaStatus: 'Signed' },
-  { vendor: 'Figma', soc2: true, iso27001: false, gdpr: true, riskRating: 'Low', dpaStatus: 'Pending' },
-  { vendor: 'Jira', soc2: true, iso27001: true, gdpr: true, riskRating: 'Low', dpaStatus: 'Signed' },
-  { vendor: 'Zoom', soc2: true, iso27001: true, gdpr: true, riskRating: 'Medium', dpaStatus: 'Signed' },
-  { vendor: 'HubSpot', soc2: true, iso27001: false, gdpr: true, riskRating: 'Medium', dpaStatus: 'Signed' },
-  { vendor: 'Asana', soc2: true, iso27001: false, gdpr: true, riskRating: 'Low', dpaStatus: 'Not Required' },
-  { vendor: '1Password', soc2: true, iso27001: true, gdpr: true, riskRating: 'Low', dpaStatus: 'Signed' },
+  { vendor: 'Slack',                      soc2: true,  iso27001: true,  gdpr: true,  riskRating: 'Low',    dpaStatus: 'Signed' },
+  { vendor: 'Microsoft Business Premium', soc2: true,  iso27001: true,  gdpr: true,  riskRating: 'Low',    dpaStatus: 'Signed' },
+  { vendor: 'Zoom',                       soc2: true,  iso27001: true,  gdpr: true,  riskRating: 'Medium', dpaStatus: 'Signed' },
+  { vendor: 'Zendesk',                    soc2: true,  iso27001: true,  gdpr: true,  riskRating: 'Low',    dpaStatus: 'Signed' },
+  { vendor: 'Tableau',                    soc2: true,  iso27001: true,  gdpr: true,  riskRating: 'Low',    dpaStatus: 'Signed' },
+  { vendor: 'LastPass',                   soc2: true,  iso27001: true,  gdpr: true,  riskRating: 'Low',    dpaStatus: 'Signed' },
+  { vendor: 'Asana',                      soc2: true,  iso27001: false, gdpr: true,  riskRating: 'Low',    dpaStatus: 'Not Required' },
+  { vendor: 'Notion',                     soc2: true,  iso27001: false, gdpr: true,  riskRating: 'Low',    dpaStatus: 'Not Required' },
+  { vendor: 'Adobe Creative Cloud',       soc2: true,  iso27001: true,  gdpr: true,  riskRating: 'Low',    dpaStatus: 'Signed' },
+  { vendor: 'Windows 365',               soc2: true,  iso27001: true,  gdpr: true,  riskRating: 'Low',    dpaStatus: 'Signed' },
+  { vendor: 'Foxit PDF Editor',           soc2: true,  iso27001: false, gdpr: true,  riskRating: 'Low',    dpaStatus: 'Not Required' },
+  { vendor: 'Applied Epic',              soc2: true,  iso27001: true,  gdpr: false, riskRating: 'Low',    dpaStatus: 'Signed' },
+  { vendor: 'Indio',                      soc2: true,  iso27001: false, gdpr: false, riskRating: 'Low',    dpaStatus: 'In Progress' },
+  { vendor: 'IMS',                        soc2: true,  iso27001: true,  gdpr: false, riskRating: 'Low',    dpaStatus: 'Signed' },
 ];
 
 export function Reports() {
