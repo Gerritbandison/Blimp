@@ -1,5 +1,13 @@
 version: "3.9"
 
+# ── Required secrets ──────────────────────────────────────────────────────────
+# Copy .env.docker.example → .env.docker, fill in values, then run:
+#   docker compose --env-file .env.docker up
+#
+#   POSTGRES_PASSWORD  strong random password for the database
+#   JWT_SECRET         64-char random string: openssl rand -hex 32
+# ─────────────────────────────────────────────────────────────────────────────
+
 services:
   # ── PostgreSQL ───────────────────────────────────────────────────────────────
   db:
@@ -7,7 +15,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: blimp
-      POSTGRES_PASSWORD: blimp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set. Copy .env.docker.example to .env.docker}
       POSTGRES_DB: blimp
     ports:
       - "5432:5432"
@@ -29,11 +37,12 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://blimp:blimp@db:5432/blimp?schema=public
-      JWT_SECRET: local-dev-secret-change-in-production
-      JWT_EXPIRES_IN: 8h
+      DATABASE_URL: postgresql://blimp:${POSTGRES_PASSWORD:?}@db:5432/blimp?schema=public
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set. Copy .env.docker.example to .env.docker}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
       PORT: "3001"
-      CORS_ORIGIN: http://localhost:5173
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      NODE_ENV: ${NODE_ENV:-production}
     ports:
       - "3001:3001"
 

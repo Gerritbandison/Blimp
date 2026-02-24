@@ -1,12 +1,26 @@
-import { Router } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { config } from '../config.js';
 import { authenticate } from '../middleware/auth.js';
 import { prisma } from '../lib/prisma.js';
 
 const router = Router();
+
+// 10 attempts per IP per 15 minutes — skipped in test environment
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  message: { error: 'Too many login attempts, please try again in 15 minutes' },
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+});
+const applyLoginLimit: (req: Request, res: Response, next: NextFunction) => void =
+  process.env.NODE_ENV === 'test'
+    ? (_req, _res, next) => { next(); }
+    : loginLimiter;
 
 const SALT_ROUNDS = 12;
 
@@ -26,7 +40,7 @@ const registerSchema = z.object({
 
 // ─── POST /auth/login ───────────────────────────────────────────────────────
 
-router.post('/login', async (req, res) => {
+router.post('/login', applyLoginLimit, async (req, res) => {
   const body = loginSchema.parse(req.body);
 
   const user = await prisma.user.findUnique({

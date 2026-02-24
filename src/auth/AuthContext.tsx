@@ -4,13 +4,27 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
+import { api, API_ENABLED, setAuthToken, clearAuthToken } from '../services/api';
+import type { UserRole } from '../types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface AuthUser {
   name: string;
   email: string;
-  role: 'Admin' | 'Finance' | 'Read Only';
+  role: UserRole;
+}
+
+/** Map backend role enum to frontend UserRole (spaces vs camelCase) */
+function mapRole(backendRole: string): UserRole {
+  switch (backendRole) {
+    case 'Admin':     return 'Admin';
+    case 'ITManager': return 'IT Manager';
+    case 'Finance':   return 'Finance';
+    case 'ReadOnly':  return 'Read Only';
+    case 'Custom':    return 'Custom';
+    default:          return 'Read Only';
+  }
 }
 
 interface AuthState {
@@ -125,6 +139,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAttemptRecord(normalizedEmail, { count: 0, lockedUntil: null });
       }
 
+      if (API_ENABLED) {
+        // ── Production path: validate against the real backend ──────────────
+        try {
+          const data = await api.post<{
+            token: string;
+            user: { id: string; email: string; name: string; role: string };
+          }>('/auth/login', { email: normalizedEmail, password });
+
+          setAuthToken(data.token);
+          clearAttemptRecord(normalizedEmail);
+
+          const user: AuthUser = {
+            name: data.user.name,
+            email: data.user.email,
+            role: mapRole(data.user.role),
+          };
+          const next: AuthState = { isAuthenticated: true, user };
+          setAuthState(next);
+          persistAuth(next);
+          return { ok: true, user };
+        } catch (err) {
+          const apiErr = err as Error & { status?: number };
+          const newCount = record.count + 1;
+          const locked = newCount >= MAX_ATTEMPTS;
+          setAttemptRecord(normalizedEmail, {
+            count: newCount,
+            lockedUntil: locked ? Date.now() + LOCKOUT_MS : null,
+          });
+          if (apiErr.status === 401) {
+            const remaining = MAX_ATTEMPTS - newCount;
+            return {
+              ok: false,
+              error: locked
+                ? 'Account locked for 15 minutes after too many failed attempts.'
+                : `Invalid email or password.${remaining > 0 ? ` ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.` : ''}`,
+            };
+          }
+          return { ok: false, error: 'Unable to reach the server. Check your connection.' };
+        }
+      }
+
+      // ── Demo / local mode: validate against hardcoded credentials ───────────
       // Simulate network latency for the demo
       await new Promise((r) => setTimeout(r, 400));
 
@@ -163,6 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setAuthState({ isAuthenticated: false, user: null });
     clearAuth();
+    clearAuthToken();
   }, []);
 
   return (

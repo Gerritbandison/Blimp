@@ -11,14 +11,28 @@
  *   GET    /agent/health           — liveness check (useful for agents)
  */
 
-import { Router } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
+import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { agentAuth } from '../middleware/agentAuth.js';
 import { AssetStatus, AssetType } from '@prisma/client';
+
+// 30 reports per device per minute — skipped in test environment
+const reportLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  message: { error: 'Rate limit exceeded' },
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+});
+const applyReportLimit: (req: Request, res: Response, next: NextFunction) => void =
+  process.env.NODE_ENV === 'test'
+    ? (_req, _res, next) => { next(); }
+    : reportLimiter;
 
 const router = Router();
 
@@ -206,7 +220,7 @@ router.get('/health', agentAuth, (req, res) => {
  *
  * All assets get parentAssetId set to the main device asset.
  */
-router.post('/report', agentAuth, async (req, res, next) => {
+router.post('/report', applyReportLimit, agentAuth, async (req, res, next) => {
   try {
     const report = AgentReportSchema.parse(req.body);
     const { hardware, os, displays, peripherals, platform, hostname, deviceId } = report;
