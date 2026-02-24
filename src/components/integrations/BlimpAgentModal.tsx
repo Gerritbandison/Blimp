@@ -96,6 +96,31 @@ function CodeBlock({ code }: { code: string }) {
 const AGENT_PORT = (import.meta.env.VITE_AGENT_PORT as string | undefined) ?? '51723';
 const AGENT_URL = `http://localhost:${AGENT_PORT}/report`;
 
+function relativeTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 2) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+function healthDot(lastSeen: string | null): string {
+  if (!lastSeen) return 'bg-gray-300';
+  const ms = Date.now() - new Date(lastSeen).getTime();
+  if (ms < 86400000) return 'bg-green-500';      // < 24 h — active
+  if (ms < 7 * 86400000) return 'bg-yellow-400'; // < 7 d — recent
+  return 'bg-red-400';                            // ≥ 7 d — stale
+}
+
+const MOCK_DEMO_DEVICES: AgentDeviceRecord[] = [
+  { id: 'mock-1', name: "Alice's ThinkPad E14", tokenPrefix: 'blt_a4x', platform: 'Linux', hostname: 'alice-thinkpad', lastSeen: new Date(Date.now() - 2 * 3600000).toISOString(), lastReport: new Date(Date.now() - 2 * 3600000).toISOString(), reportCount: 12, isActive: true, createdAt: '2026-01-15T09:00:00Z' },
+  { id: 'mock-2', name: "Carol's MacBook Pro", tokenPrefix: 'blt_c8y', platform: 'macOS', hostname: 'Carols-MacBook-Pro.local', lastSeen: new Date(Date.now() - 18 * 3600000).toISOString(), lastReport: new Date(Date.now() - 18 * 3600000).toISOString(), reportCount: 5, isActive: true, createdAt: '2026-02-01T14:30:00Z' },
+  { id: 'mock-3', name: "Frank's Dell OptiPlex", tokenPrefix: 'blt_f2m', platform: 'Windows', hostname: 'FRANK-PC', lastSeen: new Date(Date.now() - 8 * 86400000).toISOString(), lastReport: new Date(Date.now() - 8 * 86400000).toISOString(), reportCount: 3, isActive: true, createdAt: '2026-02-10T11:00:00Z' },
+];
+
 export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('install');
   const [installOs, setInstallOs] = useState<OS>('macos');
@@ -497,95 +522,106 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
         )}
 
         {/* Devices & Tokens tab */}
-        {activeTab === 'devices' && (
-          <div className="space-y-4">
-            {!API_ENABLED ? (
-              <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
-                <Shield size={14} className="flex-shrink-0 mt-0.5 text-amber-600" />
-                <div>
-                  <p className="font-semibold mb-1">API not connected</p>
+        {activeTab === 'devices' && (() => {
+          const displayDevices = API_ENABLED ? devices : MOCK_DEMO_DEVICES;
+          const activeToday = displayDevices.filter(
+            (d) => d.lastSeen && Date.now() - new Date(d.lastSeen).getTime() < 86400000
+          ).length;
+          return (
+            <div className="space-y-4">
+              {!API_ENABLED && (
+                <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                  <Shield size={14} className="flex-shrink-0 mt-0.5 text-amber-600" />
                   <p>
-                    Device token management requires a running Blimp server. Set <code className="bg-amber-100 px-1 rounded">VITE_API_BASE_URL</code> in your <code className="bg-amber-100 px-1 rounded">.env</code> file to enable this feature.
+                    Live token management requires a running Blimp server — set <code className="bg-amber-100 px-1 rounded">VITE_API_BASE_URL</code>. Showing demo data below.
                   </p>
                 </div>
-              </div>
-            ) : (
-              <>
-                <p className="text-xs text-gray-500">
-                  Generate per-device API tokens so agents can push reports directly to this server. Each token is shown only once — store it securely or save it with <code className="bg-gray-100 px-1 rounded">--save-config</code>.
-                </p>
+              )}
 
-                {/* Generate token form */}
-                <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
-                  <p className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
-                    <Key size={12} className="text-blue-500" /> Generate New Device Token
+              {API_ENABLED && (
+                <>
+                  <p className="text-xs text-gray-500">
+                    Generate per-device API tokens so agents can push reports directly to this server. Each token is shown only once — store it securely or save it with <code className="bg-gray-100 px-1 rounded">--save-config</code>.
                   </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Device name (e.g. Alice's ThinkPad)"
-                      value={newDeviceName}
-                      onChange={(e) => setNewDeviceName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') void generateDeviceToken(); }}
-                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      maxLength={100}
-                    />
-                    <button
-                      className="btn-primary text-xs py-2 px-3 flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50"
-                      onClick={() => void generateDeviceToken()}
-                      disabled={!newDeviceName.trim() || devicesLoading}
-                    >
-                      <Plus size={12} /> Generate
-                    </button>
-                  </div>
-                </div>
 
-                {devicesError && (
-                  <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
-                    <AlertCircle size={13} /> {devicesError}
-                  </div>
-                )}
-
-                {/* Newly generated token — shown once */}
-                {generatedToken && (
-                  <div className="p-4 bg-green-50 border border-green-300 rounded-xl space-y-3">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle size={14} className="text-green-600 flex-shrink-0" />
-                      <p className="text-xs font-semibold text-green-800">
-                        Token generated for <strong>{generatedToken.name}</strong> — copy it now, it won't be shown again
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 bg-white border border-green-300 rounded-lg px-3 py-2 text-xs font-mono text-gray-800 overflow-x-auto">
-                        {generatedToken.token}
-                      </code>
+                  {/* Generate token form */}
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+                    <p className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                      <Key size={12} className="text-blue-500" /> Generate New Device Token
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Device name (e.g. Alice's ThinkPad)"
+                        value={newDeviceName}
+                        onChange={(e) => setNewDeviceName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') void generateDeviceToken(); }}
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        maxLength={100}
+                      />
                       <button
-                        onClick={() => copyToken(generatedToken.token)}
-                        className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                        className="btn-primary text-xs py-2 px-3 flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50"
+                        onClick={() => void generateDeviceToken()}
+                        disabled={!newDeviceName.trim() || devicesLoading}
                       >
-                        <Copy size={11} /> {tokenCopied ? 'Copied!' : 'Copy'}
+                        <Plus size={12} /> Generate
                       </button>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold text-green-800">Quick setup (on the target machine):</p>
-                      <CodeBlock code={`python3 blimp_agent.py --save-config --blimp-url ${API_BASE ?? 'https://YOUR-SERVER'} --blimp-token ${generatedToken.token}`} />
-                      <p className="text-xs text-green-700 mt-1">
-                        After saving, future runs just need: <code className="bg-green-100 px-1 rounded">python3 blimp_agent.py --push</code>
-                      </p>
-                    </div>
-                    <button
-                      className="text-xs text-green-700 underline"
-                      onClick={() => setGeneratedToken(null)}
-                    >
-                      Dismiss
-                    </button>
                   </div>
-                )}
 
-                {/* Device list */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold text-gray-700">Registered Devices</p>
+                  {devicesError && (
+                    <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
+                      <AlertCircle size={13} /> {devicesError}
+                    </div>
+                  )}
+
+                  {/* Newly generated token — shown once */}
+                  {generatedToken && (
+                    <div className="p-4 bg-green-50 border border-green-300 rounded-xl space-y-3">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle size={14} className="text-green-600 flex-shrink-0" />
+                        <p className="text-xs font-semibold text-green-800">
+                          Token generated for <strong>{generatedToken.name}</strong> — copy it now, it won't be shown again
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 bg-white border border-green-300 rounded-lg px-3 py-2 text-xs font-mono text-gray-800 overflow-x-auto">
+                          {generatedToken.token}
+                        </code>
+                        <button
+                          onClick={() => copyToken(generatedToken.token)}
+                          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                        >
+                          <Copy size={11} /> {tokenCopied ? 'Copied!' : 'Copy'}
+                        </button>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-green-800">Quick setup (on the target machine):</p>
+                        <CodeBlock code={`python3 blimp_agent.py --save-config --blimp-url ${API_BASE ?? 'https://YOUR-SERVER'} --blimp-token ${generatedToken.token}`} />
+                        <p className="text-xs text-green-700 mt-1">
+                          After saving, future runs just need: <code className="bg-green-100 px-1 rounded">python3 blimp_agent.py --push</code>
+                        </p>
+                      </div>
+                      <button className="text-xs text-green-700 underline" onClick={() => setGeneratedToken(null)}>
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Device list — shown in both API and demo mode */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-gray-700 flex items-center gap-2">
+                    Registered Devices
+                    {displayDevices.length > 0 && (
+                      <span className="font-normal text-gray-400">
+                        {displayDevices.length} total · <span className="text-green-600 font-medium">{activeToday} active today</span>
+                      </span>
+                    )}
+                  </p>
+                  {API_ENABLED && (
                     <button
                       onClick={() => void fetchDevices()}
                       disabled={devicesLoading}
@@ -594,36 +630,44 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
                       <RefreshCw size={11} className={devicesLoading ? 'animate-spin' : ''} />
                       Refresh
                     </button>
+                  )}
+                </div>
+
+                {API_ENABLED && devicesLoading && displayDevices.length === 0 && (
+                  <div className="flex justify-center py-6">
+                    <RefreshCw size={16} className="animate-spin text-gray-400" />
                   </div>
+                )}
 
-                  {devicesLoading && devices.length === 0 && (
-                    <div className="flex justify-center py-6">
-                      <RefreshCw size={16} className="animate-spin text-gray-400" />
+                {API_ENABLED && !devicesLoading && displayDevices.length === 0 && (
+                  <div className="text-center py-8 text-xs text-gray-400">
+                    No devices registered yet. Generate a token above to add the first one.
+                  </div>
+                )}
+
+                {displayDevices.map((device) => (
+                  <div key={device.id} className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl hover:border-gray-300 transition-colors">
+                    <div className="relative w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                      <Server size={14} className="text-blue-500" />
+                      <span className={clsx('absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white', healthDot(device.lastSeen))} />
                     </div>
-                  )}
-
-                  {!devicesLoading && devices.length === 0 && (
-                    <div className="text-center py-8 text-xs text-gray-400">
-                      No devices registered yet. Generate a token above to add the first one.
-                    </div>
-                  )}
-
-                  {devices.map((device) => (
-                    <div key={device.id} className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl hover:border-gray-300 transition-colors">
-                      <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                        <Server size={14} className="text-blue-500" />
-                      </div>
-                      <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
                         <p className="text-xs font-semibold text-gray-800">{device.name}</p>
-                        <p className="text-xs text-gray-400 truncate">
-                          {device.platform ?? 'Unknown OS'}
-                          {device.hostname ? ` · ${device.hostname}` : ''}
-                          {device.lastSeen ? ` · Last seen ${new Date(device.lastSeen).toLocaleDateString()}` : ' · Never connected'}
-                        </p>
-                        <p className="text-[10px] text-gray-400">
-                          {device.reportCount} report{device.reportCount !== 1 ? 's' : ''} · token prefix: <code>{device.tokenPrefix}…</code>
-                        </p>
+                        {device.platform && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded font-medium">{device.platform}</span>
+                        )}
                       </div>
+                      <p className="text-xs text-gray-400 truncate">
+                        {device.hostname ?? 'Unknown hostname'}
+                        {' · '}
+                        {device.lastSeen ? relativeTime(device.lastSeen) : 'Never connected'}
+                      </p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        {device.reportCount} report{device.reportCount !== 1 ? 's' : ''} · token: <code className="font-mono">{device.tokenPrefix}…</code>
+                      </p>
+                    </div>
+                    {API_ENABLED && (
                       <button
                         onClick={() => void revokeDevice(device.id)}
                         disabled={revoking === device.id}
@@ -636,13 +680,13 @@ export function BlimpAgentModal({ open, integrationId, onClose, onImport }: Prop
                         }
                         Revoke
                       </button>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Auto-discover tab */}
         {activeTab === 'discover' && (

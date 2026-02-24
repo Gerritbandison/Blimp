@@ -15,7 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Monitor, Cpu, MemoryStick, Wifi, WifiOff, ShieldCheck, ShieldAlert,
   AppWindow, DollarSign, Tag, ExternalLink, Loader2, AlertCircle,
-  Laptop, Smartphone, Server, Printer, Network, Package,
+  Laptop, Smartphone, Server, Printer, Network, Package, Usb,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useStore } from '../../store/useStore';
@@ -251,10 +251,17 @@ function deriveLocalProfile(person: Person, assets: Asset[], apps: App[]): ITPro
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
+function sourceShortLabel(src: string): string {
+  if (src === 'Blimp Agent (EDID)') return 'Agent · EDID';
+  if (src === 'Blimp Agent (USB)') return 'Agent · USB';
+  if (src.startsWith('Blimp Agent')) return 'Blimp Agent';
+  return src;
+}
+
 function SourceBadge({ src }: { src: string }) {
   return (
     <span className={clsx('text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wide', sourceColor(src))}>
-      {src}
+      {sourceShortLabel(src)}
     </span>
   );
 }
@@ -450,24 +457,31 @@ export function PersonITProfile({ person }: Props) {
             <Monitor size={13} /> Monitors ({monitors.length})
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-            {monitors.map((m) => (
-              <div key={m.id} className="card p-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
-                    <Monitor size={14} className="text-indigo-500" />
+            {monitors.map((m) => {
+              const isEdid = m.detectionSource?.includes('EDID');
+              return (
+                <div key={m.id} className={clsx('card p-4', isEdid && 'border-green-200/80')}>
+                  <div className="flex items-start gap-3">
+                    <div className={clsx('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', isEdid ? 'bg-green-50' : 'bg-indigo-50')}>
+                      <Monitor size={14} className={isEdid ? 'text-green-600' : 'text-indigo-500'} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{m.name}</p>
+                      <p className="text-xs text-gray-500">{m.make} {m.model}</p>
+                      {m.screenSize && <p className="text-xs text-gray-400 mt-0.5">{m.screenSize}</p>}
+                      {m.detectionSource && (
+                        <div className="mt-1">
+                          <SourceBadge src={m.detectionSource} />
+                        </div>
+                      )}
+                    </div>
+                    {m.cost > 0 && (
+                      <span className="text-xs font-semibold text-gray-700 shrink-0">{fmt(m.cost, m.currency)}</span>
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{m.name}</p>
-                    <p className="text-xs text-gray-500">{m.make} {m.model}</p>
-                    {m.screenSize && <p className="text-xs text-gray-400 mt-0.5">{m.screenSize}</p>}
-                    {m.detectionSource && <SourceBadge src={m.detectionSource} />}
-                  </div>
-                  {m.cost > 0 && (
-                    <span className="text-xs font-semibold text-gray-700 shrink-0">{fmt(m.cost, m.currency)}</span>
-                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
@@ -479,24 +493,35 @@ export function PersonITProfile({ person }: Props) {
             <MemoryStick size={13} /> Peripherals ({peripherals.length})
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-            {peripherals.map((p) => (
-              <div key={p.id} className="card p-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-                    <Package size={14} className="text-amber-500" />
+            {peripherals.map((p) => {
+              const isAgent = p.detectionSource?.includes('Agent') || p.detectionSource?.includes('Blimp');
+              const isUsb = p.detectionSource?.includes('USB');
+              return (
+                <div key={p.id} className="card p-4">
+                  <div className="flex items-start gap-3">
+                    <div className={clsx('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', isAgent ? 'bg-green-50' : 'bg-amber-50')}>
+                      {isUsb
+                        ? <Usb size={14} className="text-green-600" />
+                        : <Package size={14} className={isAgent ? 'text-green-600' : 'text-amber-500'} />
+                      }
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
+                      <p className="text-xs text-gray-500">{p.make} {p.model}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{p.type}</p>
+                      {p.detectionSource && (
+                        <div className="mt-1">
+                          <SourceBadge src={p.detectionSource} />
+                        </div>
+                      )}
+                    </div>
+                    {p.cost > 0 && (
+                      <span className="text-xs font-semibold text-gray-700 shrink-0">{fmt(p.cost, p.currency)}</span>
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
-                    <p className="text-xs text-gray-500">{p.make} {p.model}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{p.type}</p>
-                    {p.detectionSource && <SourceBadge src={p.detectionSource} />}
-                  </div>
-                  {p.cost > 0 && (
-                    <span className="text-xs font-semibold text-gray-700 shrink-0">{fmt(p.cost, p.currency)}</span>
-                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
