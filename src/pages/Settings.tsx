@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import {
   Building2, Users, SlidersHorizontal, Bell, Tag, Key, CreditCard,
-  Plus, Trash2, Copy, RefreshCw, Palette, Sun, Moon, Laptop, Edit3, Eye, EyeOff
+  Plus, Trash2, Copy, RefreshCw, Palette, Sun, Moon, Laptop, Edit3, Eye, EyeOff,
+  Cpu, Download, ExternalLink,
 } from 'lucide-react';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { Modal } from '../components/common/Modal';
@@ -18,6 +19,7 @@ const SETTINGS_NAV = [
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'statuses', label: 'Asset Statuses', icon: Tag },
   { id: 'appearance', label: 'Appearance', icon: Palette },
+  { id: 'agent', label: 'Agent', icon: Cpu },
   { id: 'api', label: 'API Access', icon: Key },
   { id: 'billing', label: 'Billing', icon: CreditCard },
 ];
@@ -54,6 +56,14 @@ export function Settings() {
   const [fieldRequired, setFieldRequired] = useState(false);
   const [fieldOptions, setFieldOptions] = useState('');
   const [deleteFieldId, setDeleteFieldId] = useState<string | null>(null);
+
+  // Agent configuration state
+  const [agentPeripherals, setAgentPeripherals] = useState(true);
+  const [agentEdid, setAgentEdid] = useState(true);
+  const [agentNetwork, setAgentNetwork] = useState(true);
+  const [agentFrequency, setAgentFrequency] = useState('push');
+  const [agentStaleThreshold, setAgentStaleThreshold] = useState('48h');
+  const [agentRetention, setAgentRetention] = useState('90d');
 
   function handleInvite() {
     if (!inviteEmail) return;
@@ -432,6 +442,110 @@ export function Settings() {
               <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center">
                 <Key size={28} className="text-gray-300 mx-auto mb-2" /><p className="text-sm text-gray-500">No webhooks configured</p><p className="text-xs text-gray-400 mt-0.5">Receive real-time events when data changes</p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Agent Configuration ── */}
+        {activeSection === 'agent' && (
+          <div className="max-w-2xl space-y-6">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 tracking-tight">Agent Configuration</h2>
+              <p className="text-[13px] text-gray-500">Org-wide defaults for the Blimp Agent deployment</p>
+            </div>
+
+            {/* Data Collection */}
+            <div className="card p-5 space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900">Data Collection</h3>
+              <div className="space-y-1 divide-y divide-gray-50">
+                {([
+                  { key: 'peripherals' as const, label: 'Peripheral Detection', desc: 'Collect connected keyboards, mice, docks, hubs, and webcams via USB/Bluetooth', value: agentPeripherals, set: setAgentPeripherals },
+                  { key: 'edid' as const, label: 'EDID Display Detection', desc: 'Read monitor manufacturer, model, serial, resolution, and refresh rate via EDID', value: agentEdid, set: setAgentEdid },
+                  { key: 'network' as const, label: 'Network Information', desc: 'Include hostname and IP addresses in hardware reports', value: agentNetwork, set: setAgentNetwork },
+                ] as { key: string; label: string; desc: string; value: boolean; set: (v: boolean) => void }[]).map(({ key, label, desc, value, set }) => (
+                  <div key={key} className="flex items-center justify-between py-3">
+                    <div className="pr-4">
+                      <p className="text-sm text-gray-900">{label}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+                    </div>
+                    <button
+                      onClick={() => set(!value)}
+                      className={clsx('relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200', value ? 'bg-blue-600' : 'bg-gray-200')}
+                      role="switch"
+                      aria-checked={value}
+                    >
+                      <span className={clsx('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform ring-0 transition duration-200', value ? 'translate-x-4' : 'translate-x-0')} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Push Schedule */}
+            <div className="card p-5 space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900">Push Schedule</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-gray-700 mb-1 block">Default report frequency</label>
+                  <select className="select w-full" value={agentFrequency} onChange={(e) => setAgentFrequency(e.target.value)}>
+                    <option value="push">On demand (manual --push only)</option>
+                    <option value="1h">Every hour</option>
+                    <option value="6h">Every 6 hours</option>
+                    <option value="12h">Every 12 hours</option>
+                    <option value="24h">Once daily</option>
+                  </select>
+                  <p className="text-xs text-gray-400 mt-1">Can be overridden per-device in Integrations → Blimp Agent.</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-700 mb-1 block">Stale agent alert threshold</label>
+                  <select className="select w-full" value={agentStaleThreshold} onChange={(e) => setAgentStaleThreshold(e.target.value)}>
+                    <option value="24h">Alert after 24 hours of silence</option>
+                    <option value="48h">Alert after 48 hours of silence</option>
+                    <option value="7d">Alert after 7 days of silence</option>
+                    <option value="never">Never alert</option>
+                  </select>
+                  <p className="text-xs text-gray-400 mt-1">Surfaced in Dashboard "Action Required" and the Integrations page.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Retention */}
+            <div className="card p-5 space-y-3">
+              <h3 className="text-sm font-semibold text-gray-900">Data Retention</h3>
+              <div>
+                <label className="text-xs font-medium text-gray-700 mb-1 block">Keep raw agent reports for</label>
+                <select className="select w-full" value={agentRetention} onChange={(e) => setAgentRetention(e.target.value)}>
+                  <option value="30d">30 days</option>
+                  <option value="90d">90 days</option>
+                  <option value="180d">180 days</option>
+                  <option value="365d">1 year</option>
+                  <option value="forever">Indefinitely</option>
+                </select>
+                <p className="text-xs text-gray-400 mt-1">Asset records created from reports are kept indefinitely regardless of this setting.</p>
+              </div>
+            </div>
+
+            {/* Deployment */}
+            <div className="card p-5 space-y-3">
+              <h3 className="text-sm font-semibold text-gray-900">Deployment</h3>
+              <p className="text-xs text-gray-500">
+                Download the agent script or view installation docs. Manage per-device tokens in{' '}
+                <span className="text-blue-600 font-medium">Integrations → Blimp Agent → Devices & Tokens</span>.
+              </p>
+              <div className="flex gap-2">
+                <a href="/blimp_agent.py" download className="btn-secondary text-xs flex items-center gap-1.5">
+                  <Download size={13} /> Download blimp_agent.py
+                </a>
+                <button className="btn-secondary text-xs flex items-center gap-1.5" onClick={() => addToast({ type: 'info', message: 'Agent documentation coming soon' })}>
+                  <ExternalLink size={13} /> View Docs
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button className="btn-primary" onClick={() => addToast({ type: 'success', message: 'Agent configuration saved' })}>
+                Save Changes
+              </button>
             </div>
           </div>
         )}

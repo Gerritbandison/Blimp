@@ -4,7 +4,7 @@ import {
   Monitor, AppWindow, Users, DollarSign, AlertTriangle,
   Clock, CheckCircle, TrendingUp, BarChart2, Activity,
   RefreshCw, ChevronRight, Bell, Plus, UserPlus, FileSearch,
-  Link2, BarChart3, ArrowRight, ShieldCheck,
+  Link2, BarChart3, ArrowRight, ShieldCheck, Server,
 } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -48,6 +48,7 @@ export function Dashboard() {
   const people = useStore((s) => s.people);
   const activityLog = useStore((s) => s.activityLog);
   const assetGroups = useStore((s) => s.assetGroups);
+  const integrations = useStore((s) => s.integrations);
 
   const activeAssets = assets.filter((a: Asset) => a.status === 'Deployed').length;
   const totalPeople = people.filter((p: Person) => p.status === 'Active').length;
@@ -135,6 +136,14 @@ export function Dashboard() {
     ).length;
     return count < g.targetStock;
   });
+
+  // ── Agent health alerts ──
+  const agentIntegration = integrations.find((i) => i.id === 'int-agent' || i.name === 'Blimp Agent');
+  const agentAssets = assets.filter((a: Asset) => a.detectionSource?.includes('Agent') || a.detectionSource?.includes('Blimp'));
+  const agentStaleAlert = agentIntegration?.status === 'Connected' && agentIntegration.lastSync
+    ? Date.now() - new Date(agentIntegration.lastSync).getTime() > 48 * 3600000
+    : false;
+  const agentNoDataAlert = agentIntegration?.status === 'Connected' && agentAssets.length === 0 && !agentStaleAlert;
 
   const moduleColors: Record<string, string> = {
     Assets: 'bg-blue-100 text-blue-700',
@@ -271,6 +280,26 @@ export function Dashboard() {
             <Bell size={15} className="text-gray-400" />
           </div>
           <div className="space-y-2 overflow-y-auto max-h-64">
+            {agentStaleAlert && agentIntegration?.lastSync && (
+              <div onClick={() => { void navigate('/integrations'); }} className="flex items-start gap-3 p-3 rounded-lg bg-yellow-50 hover:bg-yellow-100 cursor-pointer transition-colors border border-yellow-100">
+                <Server size={14} className="mt-0.5 flex-shrink-0 text-yellow-500" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-900">Blimp Agent — no recent report</p>
+                  <p className="text-xs text-gray-500">Last sync {formatDistanceToNow(new Date(agentIntegration.lastSync))} ago · check agent connectivity</p>
+                </div>
+                <ChevronRight size={12} className="text-gray-300 flex-shrink-0 mt-0.5" />
+              </div>
+            )}
+            {agentNoDataAlert && (
+              <div onClick={() => { void navigate('/integrations'); }} className="flex items-start gap-3 p-3 rounded-lg bg-teal-50 hover:bg-teal-100 cursor-pointer transition-colors border border-teal-100">
+                <Server size={14} className="mt-0.5 flex-shrink-0 text-teal-500" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-900">Blimp Agent — no device reports yet</p>
+                  <p className="text-xs text-gray-500">Agent connected but no reports received · import a report or push from a device</p>
+                </div>
+                <ChevronRight size={12} className="text-gray-300 flex-shrink-0 mt-0.5" />
+              </div>
+            )}
             {lowStockGroups.map((g) => {
               const stock = assets.filter((a: Asset) => a.type === g.type && a.status === 'In Stock').length;
               return (
@@ -330,7 +359,7 @@ export function Dashboard() {
                 <ChevronRight size={12} className="text-gray-300 flex-shrink-0 mt-0.5" />
               </div>
             ))}
-            {upcomingRenewals.length === 0 && warrantyExpiring.length === 0 && onboarding.length === 0 && offboarding.length === 0 && lowStockGroups.length === 0 && (
+            {upcomingRenewals.length === 0 && warrantyExpiring.length === 0 && onboarding.length === 0 && offboarding.length === 0 && lowStockGroups.length === 0 && !agentStaleAlert && !agentNoDataAlert && (
               <div className="text-center py-6 text-gray-400">
                 <CheckCircle size={24} className="mx-auto mb-2 text-green-400" />
                 <p className="text-sm">All clear! No immediate actions needed.</p>
