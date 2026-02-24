@@ -435,6 +435,45 @@ export function Dashboard() {
                   </span>
                 ))}
               </div>
+              {/* Detection source breakdown */}
+              {(() => {
+                const sources: Record<string, number> = {};
+                assets.forEach((a: Asset) => {
+                  const src = a.detectionSource || 'Manual';
+                  const key = src.includes('Agent') ? 'Blimp Agent' : src.includes('Intune') ? 'Intune' : src.includes('Ninja') ? 'NinjaOne' : src;
+                  sources[key] = (sources[key] || 0) + 1;
+                });
+                const entries = Object.entries(sources).sort((a, b) => b[1] - a[1]);
+                if (entries.length === 0) return null;
+                const sourceColors: Record<string, string> = {
+                  'Intune': 'bg-blue-500', 'NinjaOne': 'bg-orange-500', 'Blimp Agent': 'bg-teal-500',
+                  'Manual': 'bg-gray-400', 'SSO': 'bg-purple-500', 'Accounting': 'bg-yellow-500',
+                };
+                return (
+                  <div className="mt-4 pt-3 border-t border-gray-100">
+                    <p className="text-xs font-semibold text-gray-700 mb-2">Detection Sources</p>
+                    <div className="flex h-2 rounded-full overflow-hidden gap-0.5">
+                      {entries.map(([src, count]) => (
+                        <div
+                          key={src}
+                          className={clsx('rounded-full', sourceColors[src] || 'bg-gray-300')}
+                          style={{ width: `${(count / assets.length) * 100}%` }}
+                          title={`${src}: ${count}`}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                      {entries.map(([src, count]) => (
+                        <div key={src} className="flex items-center gap-1.5">
+                          <div className={clsx('w-2 h-2 rounded-full', sourceColors[src] || 'bg-gray-300')} />
+                          <span className="text-[10px] text-gray-600">{src}</span>
+                          <span className="text-[10px] font-semibold text-gray-900">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         );

@@ -363,7 +363,7 @@ export function Integrations() {
 
     let added = 0;
     let skipped = 0;
-    [preview.deviceAsset, ...preview.monitorAssets].forEach((a) => {
+    [preview.deviceAsset, ...preview.monitorAssets, ...preview.peripheralAssets].forEach((a) => {
       if (existingIds.has(a.id)) { skipped++; return; }
       addAsset(a);
       added++;

@@ -216,6 +216,52 @@ export const mockAssets: Asset[] = [
     department: 'Engineering', category: 'Laptops',
     detectionSource: 'Manual',
   },
+  // ── Agent-discovered assets ───────────────────────────────────────────
+  {
+    id: 'a26', tag: 'AGENT-PF4R8821', name: 'Lenovo ThinkPad E14 Gen 7', type: 'Laptop', make: 'Lenovo', model: 'ThinkPad E14 Gen 7',
+    serial: 'PF4R8821', status: 'Deployed', assignedTo: 'Carol White', assignedToId: 'p3',
+    location: 'Conshohocken (Agent)', purchaseDate: '2025-09-01', warrantyExpiry: '2028-09-01',
+    cost: 1049, currency: 'USD', os: 'Windows 11 Pro 24H2 (26100.3194)', ram: '16 GB', storage: '476 GB (NVMe)',
+    department: 'Finance', category: 'Laptops',
+    detectionSource: 'Blimp Agent',
+    notes: 'CPU: AMD Ryzen 5 7535HS · Architecture: AMD64 · Hostname: DESKTOP-FIN03 · IPs: 10.0.50.33, 192.168.1.105 · Agent v1.2.0',
+  },
+  {
+    id: 'a27', tag: 'MON-HJ3K0721', name: 'Dell U2723QE', type: 'Monitor', make: 'Dell', model: 'DELL U2723QE',
+    serial: 'HJ3K0721', status: 'Deployed', assignedTo: 'Carol White', assignedToId: 'p3',
+    location: 'Conshohocken (Agent)', purchaseDate: '2023-01-01', warrantyExpiry: '2026-01-01',
+    cost: 619, currency: 'USD',
+    department: 'Finance', category: 'Monitors',
+    detectionSource: 'Blimp Agent (EDID)',
+    notes: 'EDID Vendor: DEL · Product ID: 41C6 · Resolution: 3840x2160 · Refresh: 60 Hz · Manufactured: 2023 wk7 · Host: Lenovo ThinkPad E14 Gen 7 (PF4R8821)',
+  },
+  {
+    id: 'a28', tag: 'PERI-04F32604', name: 'Logitech MX Keys S', type: 'Peripheral', make: 'Logitech', model: 'MX Keys S',
+    serial: '2604MXK-028', status: 'Deployed', assignedTo: 'Carol White', assignedToId: 'p3',
+    location: 'Conshohocken (Agent)', purchaseDate: '2025-09-01', warrantyExpiry: '2028-09-01',
+    cost: 109, currency: 'USD',
+    department: 'Finance', category: 'Peripherals',
+    detectionSource: 'Blimp Agent (USB)',
+    notes: 'Connection: USB · Vendor ID: 0x046d · Product ID: 0xc548 · Host: Lenovo ThinkPad E14 Gen 7 (PF4R8821) · Agent v1.2.0',
+  },
+  {
+    id: 'a29', tag: 'AGENT-MP5C9910', name: 'Lenovo ThinkPad T14s Gen 5', type: 'Laptop', make: 'Lenovo', model: 'ThinkPad T14s Gen 5',
+    serial: 'MP5C9910', status: 'Deployed', assignedTo: 'Frank Brown', assignedToId: 'p6',
+    location: 'Kansas City (Agent)', purchaseDate: '2025-06-15', warrantyExpiry: '2028-06-15',
+    cost: 1599, currency: 'USD', os: 'Windows 11 Pro 24H2 (26100.3194)', ram: '32 GB', storage: '512 GB (NVMe)',
+    department: 'Sales', category: 'Laptops',
+    detectionSource: 'Blimp Agent',
+    notes: 'CPU: Intel Core Ultra 7 155H · Architecture: AMD64 · Hostname: DESKTOP-SALES07 · IPs: 10.0.30.88 · Agent v1.2.0',
+  },
+  {
+    id: 'a30', tag: 'MON-YV6M3312', name: 'LG 27UK850-W', type: 'Monitor', make: 'LG', model: '27UK850',
+    serial: 'YV6M3312', status: 'Deployed', assignedTo: 'Frank Brown', assignedToId: 'p6',
+    location: 'Kansas City (Agent)', purchaseDate: '2022-01-01', warrantyExpiry: '2025-01-01',
+    cost: 449, currency: 'USD',
+    department: 'Sales', category: 'Monitors',
+    detectionSource: 'Blimp Agent (EDID)',
+    notes: 'EDID Vendor: GSM · Product ID: 5B08 · Resolution: 3840x2160 · Refresh: 60 Hz · Manufactured: 2022 wk15 · Host: Lenovo ThinkPad T14s Gen 5 (MP5C9910)',
+  },
 ];
 
 // ─── Mock Apps ────────────────────────────────────────────────────────────
@@ -517,9 +563,14 @@ export const mockIntegrations: Integration[] = [
   },
   {
     id: 'int-agent', name: 'Blimp Agent', category: 'MDM/RMM',
-    description: 'Lightweight agent for macOS, Windows & Linux — collects hardware specs, serial numbers, EDID display data, and warranty information directly from managed machines.',
-    status: 'Disconnected',
-    features: ['Hardware auto-discovery', 'Serial number & model', 'EDID monitor info', 'CPU / RAM / Storage', 'OS version & build', 'Local HTTP API'],
+    description: 'Lightweight agent for macOS, Windows & Linux — collects hardware specs, serial numbers, EDID display data, and connected peripherals directly from managed machines.',
+    status: 'Connected',
+    lastSync: '2026-02-23T18:45:00Z',
+    connectedAt: '2025-12-01',
+    syncCount: 5,
+    syncFrequency: 'On push',
+    features: ['Hardware auto-discovery', 'Serial number & model', 'EDID monitor info', 'CPU / RAM / Storage', 'Peripheral detection', 'Push-to-server'],
+    lastSyncResult: { at: '2026-02-23T18:45:00Z', assetsAdded: 2, assetsUpdated: 3, peopleAdded: 0, appsAdded: 0, skipped: 0, errors: [] },
   },
 ];
 
