@@ -6,25 +6,12 @@ import {
 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { clsx } from 'clsx';
-import type { AgentReport, AgentPeripheral } from '../../types';
+import type { AgentReport, AgentPeripheral, AgentDeviceRecord } from '../../types';
 import { parseAgentReport, buildAssetsFromReport } from '../../utils/agentImport';
 import { THINKPAD_E14_AGENT_REPORT } from '../../data/lenovoScenario';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
 const API_ENABLED = !!API_BASE;
-
-interface AgentDeviceRecord {
-  id: string;
-  name: string;
-  tokenPrefix: string;
-  platform: string | null;
-  hostname: string | null;
-  lastSeen: string | null;
-  lastReport: string | null;
-  reportCount: number;
-  isActive: boolean;
-  createdAt: string;
-}
 
 interface Props {
   open: boolean;

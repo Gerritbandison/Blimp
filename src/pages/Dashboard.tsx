@@ -164,10 +164,11 @@ export function Dashboard() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         <StatCard title="Total Assets" value={assets.length} icon={Monitor} iconColor="text-blue-600" iconBg="bg-blue-50" subtitle={`${activeAssets} deployed`} onClick={() => { void navigate('/assets'); }} />
         <StatCard title="Apps & Licenses" value={apps.length} icon={AppWindow} iconColor="text-purple-600" iconBg="bg-purple-50" subtitle={`${apps.filter((a: App) => a.status === 'Active').length} active`} onClick={() => { void navigate('/apps'); }} />
         <StatCard title="Total People" value={people.length} icon={Users} iconColor="text-green-600" iconBg="bg-green-50" subtitle={`${totalPeople} active`} onClick={() => { void navigate('/people'); }} />
+        <StatCard title="Agent Coverage" value={agentAssets.length} icon={Server} iconColor="text-teal-600" iconBg="bg-teal-50" subtitle={agentIntegration?.status === 'Connected' ? 'Agent connected' : 'Not connected'} onClick={() => { void navigate('/integrations'); }} />
         <StatCard title="Monthly IT Spend" value={`$${Math.round(monthlySoftwareCost + monthlyHardwareCost).toLocaleString('en-US')}`} icon={DollarSign} iconColor="text-yellow-600" iconBg="bg-yellow-50" trend={{ value: 3.2, label: 'vs last month', positive: false }} />
         <StatCard title="Needs Action" value={needAction + upcomingRenewals.length + lowStockGroups.length} icon={AlertTriangle} iconColor="text-red-600" iconBg="bg-red-50" subtitle="Repairs, renewals, warnings" />
       </div>
@@ -409,7 +410,6 @@ export function Dashboard() {
           const annual = a.billingCycle === 'annual' ? a.costPerLicense : a.costPerLicense * 12;
           return s + unused * annual;
         }, 0);
-        const integrations = useStore.getState().integrations;
         const connected = integrations.filter((i) => i.status === 'Connected').length;
         return (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

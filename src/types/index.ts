@@ -272,6 +272,19 @@ export interface AgentReport {
   peripherals: AgentPeripheral[];
 }
 
+export interface AgentDeviceRecord {
+  id: string;
+  name: string;
+  tokenPrefix: string;
+  platform: string | null;
+  hostname: string | null;
+  lastSeen: string | null;
+  lastReport: string | null;
+  reportCount: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface IntegrationConfig {
   // Intune / Azure AD
   tenantId?: string;

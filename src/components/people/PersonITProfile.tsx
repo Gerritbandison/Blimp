@@ -428,7 +428,7 @@ export function PersonITProfile({ person }: Props) {
         <div className="card p-10 text-center text-gray-400">
           <Monitor size={32} className="mx-auto mb-3 opacity-30" />
           <p className="text-sm font-medium">No IT data found for this person</p>
-          <p className="text-xs mt-1">Run an Intune or NinjaOne sync to populate device data, or assign assets directly.</p>
+          <p className="text-xs mt-1">Run an Intune, NinjaOne, or Blimp Agent sync to populate device data, or assign assets directly.</p>
         </div>
       ) : null}
 
