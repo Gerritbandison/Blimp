@@ -672,9 +672,17 @@ export function Integrations() {
                       )}
                       {isConnected && isAgent && (
                         <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-teal-100 text-teal-700">
-                          EDID
+                          EDID + USB
                         </span>
                       )}
+                      {isConnected && isAgent && (() => {
+                        const agentCount = assets.filter((a) => a.detectionSource?.includes('Agent')).length;
+                        return agentCount > 0 ? (
+                          <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-gray-100 text-gray-600">
+                            {agentCount} asset{agentCount !== 1 ? 's' : ''}
+                          </span>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -753,7 +761,7 @@ export function Integrations() {
                         onClick={() => setShowAgent(true)}
                         className="btn-secondary flex-1 justify-center text-xs py-1.5"
                       >
-                        <Plug size={12} /> Import Report
+                        <Plug size={12} /> Manage Agent
                       </button>
                     ) : (
                       <button

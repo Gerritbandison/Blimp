@@ -213,6 +213,7 @@ export function AssetList() {
   const [statusFilter, setStatusFilter] = useState<AssetStatus | ''>('');
   const [typeFilter, setTypeFilter] = useState<AssetType | ''>('');
   const [locationFilter, setLocationFilter] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showColumnPicker, setShowColumnPicker] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -247,12 +248,21 @@ export function AssetList() {
   const [importStep, setImportStep] = useState<'upload' | 'map' | 'preview'>('upload');
 
   const locations = [...new Set(assets.map((a) => a.location))];
+  const sources = [...new Set(assets.map((a) => {
+    const s = a.detectionSource || 'Manual';
+    return s.includes('Agent') ? 'Blimp Agent' : s;
+  }))].sort();
 
   const filtered = useMemo(() => {
     return assets.filter((a) => {
       if (statusFilter && a.status !== statusFilter) return false;
       if (typeFilter && a.type !== typeFilter) return false;
       if (locationFilter && a.location !== locationFilter) return false;
+      if (sourceFilter) {
+        const src = a.detectionSource || 'Manual';
+        const normalized = src.includes('Agent') ? 'Blimp Agent' : src;
+        if (normalized !== sourceFilter) return false;
+      }
       if (search) {
         const q = search.toLowerCase();
         return (
@@ -265,7 +275,7 @@ export function AssetList() {
       }
       return true;
     });
-  }, [assets, statusFilter, typeFilter, locationFilter, search]);
+  }, [assets, statusFilter, typeFilter, locationFilter, sourceFilter, search]);
 
   const visibleColumns = ALL_COLUMNS.map((c) => ({ ...c, hidden: hiddenCols.includes(String(c.key)) }));
 
@@ -544,7 +554,7 @@ export function AssetList() {
 
           <button onClick={() => setShowFilters(!showFilters)} className={clsx('btn-secondary', showFilters && 'bg-blue-50 border-blue-200 text-blue-700')}>
             <Filter size={14} /> Filters
-            {(typeFilter || locationFilter) && <span className="w-1.5 h-1.5 rounded-full bg-blue-600 ml-0.5" />}
+            {(typeFilter || locationFilter || sourceFilter) && <span className="w-1.5 h-1.5 rounded-full bg-blue-600 ml-0.5" />}
           </button>
 
           {viewMode === 'list' && (
@@ -593,8 +603,15 @@ export function AssetList() {
                 {locations.map((l) => <option key={l} value={l}>{l}</option>)}
               </select>
             </div>
-            {(typeFilter || locationFilter) && (
-              <button onClick={() => { setTypeFilter(''); setLocationFilter(''); }} className="text-xs text-blue-600 hover:text-blue-700">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-600">Source:</label>
+              <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="text-sm border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">All Sources</option>
+                {sources.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            {(typeFilter || locationFilter || sourceFilter) && (
+              <button onClick={() => { setTypeFilter(''); setLocationFilter(''); setSourceFilter(''); }} className="text-xs text-blue-600 hover:text-blue-700">
                 Clear filters
               </button>
             )}
