@@ -36,22 +36,21 @@ const LEGACY_SYNC_DATA: Record<string, {
   people?: { name: string; email: string; department: string; title: string }[];
   apps?: { name: string; vendor: string; licenses: number }[];
 }> = {
-  Okta: {
-    apps: [
-      { name: 'Salesforce (via Okta)', vendor: 'Salesforce', licenses: 25 },
-      { name: 'Workday (via Okta)', vendor: 'Workday', licenses: 50 },
-    ],
-  },
   BambooHR: {
     people: [
-      { name: 'Sarah Chen', email: 'sarah.chen@company.com', department: 'Engineering', title: 'Senior Developer' },
-      { name: 'Michael Torres', email: 'michael.torres@company.com', department: 'Marketing', title: 'Marketing Manager' },
+      { name: 'Liam Torres', email: 'liam.torres@company.com', department: 'Sales', title: 'Sales Representative' },
+      { name: 'Mia Henderson', email: 'mia.henderson@company.com', department: 'Finance', title: 'Accountant' },
     ],
   },
   'Jamf Pro': {
     assets: [
       { name: 'MacBook Pro 16" (Jamf)', type: 'Laptop', serial: 'JAMF-MBP-001', make: 'Apple', model: 'MacBook Pro 16"' },
-      { name: 'MacBook Air M2 (Jamf)', type: 'Laptop', serial: 'JAMF-MBA-002', make: 'Apple', model: 'MacBook Air M2' },
+      { name: 'MacBook Air M3 (Jamf)', type: 'Laptop', serial: 'JAMF-MBA-002', make: 'Apple', model: 'MacBook Air M3' },
+    ],
+  },
+  Zendesk: {
+    apps: [
+      { name: 'Zendesk Support (via Zendesk)', vendor: 'Zendesk', licenses: 15 },
     ],
   },
 };

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus, Download, Filter, Search, Trash2, Archive,
   Monitor, SlidersHorizontal, Upload, Edit3,
@@ -63,7 +63,11 @@ const ASSET_TYPES: AssetType[] = ['Laptop', 'Monitor', 'Phone', 'Tablet', 'Deskt
 
 // ─── Grouped view helpers ─────────────────────────────────────────────────────
 
+type GroupMode = 'category' | 'location';
+
 const TYPE_ORDER: AssetType[] = ['Laptop', 'Desktop', 'Server', 'Phone', 'Tablet', 'Monitor', 'Printer', 'Network', 'Peripheral', 'Other'];
+const CATEGORY_ORDER = ['Laptops', 'Monitors', 'Peripherals', 'Printers', 'Docks', 'Desktops', 'Servers', 'Network', 'Other'];
+const LOCATION_ORDER = ['New York', 'Kansas City', 'Conshohocken', 'Remote'];
 
 const TYPE_META: Record<string, { icon: React.ReactNode; color: string; bg: string }> = {
   Laptop:     { icon: <Laptop size={13} />,     color: 'text-blue-600',   bg: 'bg-blue-50' },
@@ -78,26 +82,70 @@ const TYPE_META: Record<string, { icon: React.ReactNode; color: string; bg: stri
   Other:      { icon: <Package size={13} />,    color: 'text-gray-500',   bg: 'bg-gray-50' },
 };
 
-function groupAssets(assets: Asset[]) {
-  // location → device type → assets
+interface GroupBlock {
+  groupLabel: string;
+  /** For location mode: sub-groups by type. For category mode: empty (assets rendered flat). */
+  subGroups: { subLabel: string; assets: Asset[] }[];
+  /** Only populated for category mode: all assets in this category shown flat. */
+  flatAssets: Asset[];
+  totalCost: number;
+  totalCount: number;
+}
+
+function groupAssets(assets: Asset[], mode: GroupMode): GroupBlock[] {
+  if (mode === 'category') {
+    const byCategory = new Map<string, Asset[]>();
+    for (const a of assets) {
+      const cat = a.category || a.type || 'Other';
+      if (!byCategory.has(cat)) byCategory.set(cat, []);
+      byCategory.get(cat)!.push(a);
+    }
+    return [...byCategory.entries()]
+      .sort(([a], [b]) => {
+        const ai = CATEGORY_ORDER.indexOf(a);
+        const bi = CATEGORY_ORDER.indexOf(b);
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      })
+      .map(([cat, catAssets]) => ({
+        groupLabel: cat,
+        subGroups: [],
+        flatAssets: catAssets,
+        totalCost: catAssets.reduce((s, a) => s + a.cost, 0),
+        totalCount: catAssets.length,
+      }));
+  }
+
+  // location mode: location → type → assets
   const byLocation = new Map<string, Map<string, Asset[]>>();
   for (const a of assets) {
-    const loc = a.location || 'Unknown Location';
+    const loc = a.location || 'Unknown';
     if (!byLocation.has(loc)) byLocation.set(loc, new Map());
     const byType = byLocation.get(loc)!;
     if (!byType.has(a.type)) byType.set(a.type, []);
     byType.get(a.type)!.push(a);
   }
-  // Sort locations; sort types within each location by TYPE_ORDER
-  const sorted = [...byLocation.entries()].sort(([a], [b]) => a.localeCompare(b));
-  return sorted.map(([loc, byType]) => {
-    const types = TYPE_ORDER
-      .filter((t) => byType.has(t))
-      .map((t) => ({ type: t, assets: byType.get(t)! }));
-    const totalCost = [...byType.values()].flat().reduce((s, a) => s + a.cost, 0);
-    const totalCount = [...byType.values()].flat().length;
-    return { loc, types, totalCost, totalCount };
-  });
+  return [...byLocation.entries()]
+    .sort(([a], [b]) => {
+      const ai = LOCATION_ORDER.indexOf(a);
+      const bi = LOCATION_ORDER.indexOf(b);
+      if (ai !== -1 && bi !== -1) return ai - bi;
+      if (ai !== -1) return -1;
+      if (bi !== -1) return 1;
+      return a.localeCompare(b);
+    })
+    .map(([loc, byType]) => {
+      const subGroups = TYPE_ORDER
+        .filter((t) => byType.has(t))
+        .map((t) => ({ subLabel: t, assets: byType.get(t)! }));
+      const allAssets = [...byType.values()].flat();
+      return {
+        groupLabel: loc,
+        subGroups,
+        flatAssets: [],
+        totalCost: allAssets.reduce((s, a) => s + a.cost, 0),
+        totalCount: allAssets.length,
+      };
+    });
 }
 
 function AssetCard({ asset, onClick }: { asset: Asset; onClick: () => void }) {
@@ -174,9 +222,16 @@ export function AssetList() {
   const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
   const [newAsset, setNewAsset] = useState<Partial<Asset>>({ status: 'In Stock', type: 'Laptop', currency: 'USD', cost: 0 });
 
-  // Bulk edit state
+  const [searchParams, setSearchParams] = useSearchParams();
+  const groupBy: GroupMode = (searchParams.get('group') as GroupMode) ?? 'category';
+
   const [viewMode, setViewMode] = useState<'grouped' | 'list'>('grouped');
-  const [collapsedLocations, setCollapsedLocations] = useState<Set<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  function setGroupBy(mode: GroupMode) {
+    setCollapsedGroups(new Set()); // reset collapse when switching mode
+    setSearchParams((prev) => { prev.set('group', mode); return prev; }, { replace: true });
+  }
 
   // Bulk edit state
   const [showBulkEdit, setShowBulkEdit] = useState(false);
@@ -447,6 +502,7 @@ export function AssetList() {
             />
           </div>
 
+          {/* View mode toggle */}
           <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
             <button
               onClick={() => setViewMode('grouped')}
@@ -463,6 +519,28 @@ export function AssetList() {
               <List size={14} />
             </button>
           </div>
+
+          {/* Group By selector — only shown in grouped view */}
+          {viewMode === 'grouped' && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-400 font-medium">Group by</span>
+              <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+                {(['category', 'location'] as GroupMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setGroupBy(mode)}
+                    className={clsx(
+                      'px-2.5 py-1.5 text-xs font-medium capitalize transition-colors',
+                      mode !== 'category' && 'border-l border-gray-200',
+                      groupBy === mode ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'
+                    )}
+                  >
+                    {mode === 'category' ? 'Category' : 'Location'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <button onClick={() => setShowFilters(!showFilters)} className={clsx('btn-secondary', showFilters && 'bg-blue-50 border-blue-200 text-blue-700')}>
             <Filter size={14} /> Filters
@@ -571,7 +649,7 @@ export function AssetList() {
 
       {/* Grouped blocks (grouped mode) */}
       {viewMode === 'grouped' && (() => {
-        const groups = groupAssets(filtered);
+        const groups = groupAssets(filtered, groupBy);
         if (groups.length === 0) {
           return (
             <div className="card p-12 text-center">
@@ -584,24 +662,43 @@ export function AssetList() {
           );
         }
         return (
-          <div className="space-y-4">
-            {groups.map(({ loc, types, totalCost, totalCount }) => {
-              const isCollapsed = collapsedLocations.has(loc);
-              const toggleCollapse = () => setCollapsedLocations((prev) => {
+          <div key={groupBy} className="space-y-4">
+            {groups.map(({ groupLabel, subGroups, flatAssets, totalCost, totalCount }) => {
+              const isCollapsed = collapsedGroups.has(groupLabel);
+              const toggleCollapse = () => setCollapsedGroups((prev) => {
                 const next = new Set(prev);
-                next.has(loc) ? next.delete(loc) : next.add(loc);
+                next.has(groupLabel) ? next.delete(groupLabel) : next.add(groupLabel);
                 return next;
               });
+              const headerIcon = groupBy === 'location'
+                ? <MapPin size={14} className="text-blue-500 shrink-0" />
+                : (() => { const m = TYPE_META[groupLabel] ?? TYPE_META.Other; return <span className={clsx('flex-shrink-0', m.color)}>{m.icon}</span>; })();
+              // Summary pills for location mode: show type breakdown; for category mode: show location breakdown
+              const summaryPills = groupBy === 'location'
+                ? subGroups.map(({ subLabel, assets: ta }) => {
+                    const m = TYPE_META[subLabel] ?? TYPE_META.Other;
+                    return (
+                      <span key={subLabel} className={clsx('flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full', m.bg, m.color)}>
+                        {m.icon} {subLabel} ({ta.length})
+                      </span>
+                    );
+                  })
+                : [...new Set(flatAssets.map(a => a.location || 'Unknown'))].slice(0, 4).map((loc) => (
+                    <span key={loc} className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                      <MapPin size={9} /> {loc}
+                    </span>
+                  ));
+
               return (
-                <div key={loc} className="card overflow-hidden">
-                  {/* Location header */}
+                <div key={groupLabel} className="card overflow-hidden">
+                  {/* Group header */}
                   <button
                     onClick={toggleCollapse}
                     className="w-full flex items-center gap-3 px-5 py-3.5 bg-gray-50 border-b border-gray-100 hover:bg-gray-100/60 transition-colors text-left"
                   >
                     {isCollapsed ? <ChevronRight size={14} className="text-gray-400 shrink-0" /> : <ChevronDown size={14} className="text-gray-400 shrink-0" />}
-                    <MapPin size={14} className="text-blue-500 shrink-0" />
-                    <span className="flex-1 text-sm font-semibold text-gray-800">{loc}</span>
+                    {headerIcon}
+                    <span className="flex-1 text-sm font-semibold text-gray-800">{groupLabel}</span>
                     <div className="flex items-center gap-4 text-xs text-gray-500">
                       <span className="flex items-center gap-1">
                         <span className="font-semibold text-gray-700">{totalCount}</span> assets
@@ -611,49 +708,65 @@ export function AssetList() {
                         <span className="font-semibold text-gray-700">{totalCost.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span> total value
                       </span>
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {types.map(({ type, assets: ta }) => {
-                          const m = TYPE_META[type] ?? TYPE_META.Other;
-                          return (
-                            <span key={type} className={clsx('flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full', m.bg, m.color)}>
-                              {m.icon} {type} ({ta.length})
-                            </span>
-                          );
-                        })}
+                        {summaryPills}
                       </div>
                     </div>
                   </button>
 
-                  {/* Device type groups */}
+                  {/* Content */}
                   {!isCollapsed && (
-                    <div className="divide-y divide-gray-50">
-                      {types.map(({ type, assets: typeAssets }) => {
-                        const meta = TYPE_META[type] ?? TYPE_META.Other;
-                        return (
-                          <div key={type} className="p-5">
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className={clsx('w-6 h-6 rounded-md flex items-center justify-center', meta.bg)}>
-                                <span className={meta.color}>{meta.icon}</span>
-                              </div>
-                              <span className="text-xs font-semibold text-gray-700">{type}s</span>
-                              <span className="text-xs text-gray-400">({typeAssets.length})</span>
-                              <div className="flex-1 h-px bg-gray-100 ml-1" />
-                              <span className="text-xs text-gray-400">
-                                {typeAssets.filter((a) => a.assignedTo).length} assigned · {typeAssets.filter((a) => !a.assignedTo).length} unassigned
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                              {typeAssets.map((asset) => (
-                                <AssetCard
-                                  key={asset.id}
-                                  asset={asset}
-                                  onClick={() => { void navigate(`/assets/${asset.id}`); }}
-                                />
-                              ))}
-                            </div>
+                    groupBy === 'category'
+                      ? (
+                        // Category mode: flat grid of assets, optionally sub-divided by location
+                        <div className="p-5">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-xs text-gray-400">
+                              {flatAssets.filter(a => a.assignedTo).length} assigned · {flatAssets.filter(a => !a.assignedTo).length} unassigned
+                            </span>
                           </div>
-                        );
-                      })}
-                    </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                            {flatAssets.map((asset) => (
+                              <AssetCard
+                                key={asset.id}
+                                asset={asset}
+                                onClick={() => { void navigate(`/assets/${asset.id}`); }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )
+                      : (
+                        // Location mode: sub-grouped by device type
+                        <div className="divide-y divide-gray-50">
+                          {subGroups.map(({ subLabel, assets: typeAssets }) => {
+                            const meta = TYPE_META[subLabel] ?? TYPE_META.Other;
+                            return (
+                              <div key={subLabel} className="p-5">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <div className={clsx('w-6 h-6 rounded-md flex items-center justify-center', meta.bg)}>
+                                    <span className={meta.color}>{meta.icon}</span>
+                                  </div>
+                                  <span className="text-xs font-semibold text-gray-700">{subLabel}s</span>
+                                  <span className="text-xs text-gray-400">({typeAssets.length})</span>
+                                  <div className="flex-1 h-px bg-gray-100 ml-1" />
+                                  <span className="text-xs text-gray-400">
+                                    {typeAssets.filter((a) => a.assignedTo).length} assigned · {typeAssets.filter((a) => !a.assignedTo).length} unassigned
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                  {typeAssets.map((asset) => (
+                                    <AssetCard
+                                      key={asset.id}
+                                      asset={asset}
+                                      onClick={() => { void navigate(`/assets/${asset.id}`); }}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )
                   )}
                 </div>
               );
