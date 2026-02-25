@@ -69,6 +69,51 @@ const PeripheralSchema = z.object({
   isBuiltIn:      z.boolean().default(false),
 });
 
+const InstalledAppSchema = z.object({
+  name:        z.string(),
+  version:     z.string(),
+  publisher:   z.string().nullable().optional(),
+  installDate: z.string().nullable().optional(),
+});
+
+const AntivirusSchema = z.object({
+  name:                z.string(),
+  version:             z.string().nullable().optional(),
+  enabled:             z.boolean(),
+  definitionsUpToDate: z.boolean(),
+});
+
+const SecuritySchema = z.object({
+  antivirus:      AntivirusSchema.nullable().optional(),
+  firewall:       z.object({ enabled: z.boolean() }).nullable().optional(),
+  lastPatchDate:  z.string().nullable().optional(),
+  pendingUpdates: z.number().nullable().optional(),
+});
+
+const IdentitySchema = z.object({
+  currentUser:      z.string().nullable().optional(),
+  currentUserEmail: z.string().nullable().optional(),
+  adJoined:         z.boolean().nullable().optional(),
+  adDomain:         z.string().nullable().optional(),
+  entraJoined:      z.boolean().nullable().optional(),
+  entraTenantId:    z.string().nullable().optional(),
+  mdmProvider:      z.string().nullable().optional(),
+  mdmCompliance:    z.string().nullable().optional(),
+});
+
+const OpenPortSchema = z.object({
+  port:     z.number(),
+  process:  z.string(),
+  protocol: z.string(),
+});
+
+const CertificateSchema = z.object({
+  name:   z.string(),
+  issuer: z.string(),
+  expiry: z.string().nullable().optional(),
+  store:  z.string(),
+});
+
 const AgentReportSchema = z.object({
   version:     z.string(),
   generatedAt: z.string(),
@@ -93,8 +138,13 @@ const AgentReportSchema = z.object({
     hostname:    z.string(),
     ipAddresses: z.array(z.string()).default([]),
   }),
-  displays:    z.array(DisplaySchema).default([]),
-  peripherals: z.array(PeripheralSchema).default([]),
+  displays:      z.array(DisplaySchema).default([]),
+  peripherals:   z.array(PeripheralSchema).default([]),
+  software:      z.object({ installed: z.array(InstalledAppSchema).default([]) }).optional(),
+  security:      SecuritySchema.optional(),
+  identity:      IdentitySchema.optional(),
+  networkDetail: z.object({ openPorts: z.array(OpenPortSchema).default([]) }).optional(),
+  certificates:  z.array(CertificateSchema).default([]),
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -223,7 +273,8 @@ router.get('/health', agentAuth, (req, res) => {
 router.post('/report', applyReportLimit, agentAuth, async (req, res, next) => {
   try {
     const report = AgentReportSchema.parse(req.body);
-    const { hardware, os, displays, peripherals, platform, hostname, deviceId } = report;
+    const { hardware, os, displays, peripherals, platform, hostname, deviceId,
+            software, security, identity, networkDetail, certificates } = report;
 
     const storageStr = hardware.storage.length
       ? hardware.storage.map((s) => `${s.totalGB} GB (${s.label})`).join(', ')
@@ -246,6 +297,28 @@ router.post('/report', applyReportLimit, agentAuth, async (req, res, next) => {
       where: { serial: hardware.serial, detectionSource: { contains: 'Agent' } },
     });
 
+    // Build enrichment data from new scan sections
+    const enrichment: Record<string, unknown> = {};
+    if (security?.antivirus) {
+      enrichment.antivirusName    = security.antivirus.name;
+      enrichment.antivirusVersion = security.antivirus.version ?? null;
+      enrichment.antivirusEnabled = security.antivirus.enabled;
+    }
+    if (security?.firewall) enrichment.firewallEnabled = security.firewall.enabled;
+    if (security?.lastPatchDate) enrichment.lastPatchDate = new Date(security.lastPatchDate);
+    if (security?.pendingUpdates != null) enrichment.pendingUpdates = security.pendingUpdates;
+    if (identity?.currentUser) enrichment.currentUser = identity.currentUser;
+    if (identity?.adJoined != null)    enrichment.adJoined = identity.adJoined;
+    if (identity?.adDomain)            enrichment.adDomain = identity.adDomain;
+    if (identity?.entraJoined != null) enrichment.entraJoined = identity.entraJoined;
+    if (identity?.mdmProvider)         enrichment.mdmProvider = identity.mdmProvider;
+    if (identity?.mdmCompliance)       enrichment.mdmCompliance = identity.mdmCompliance;
+    if (software?.installed?.length)   enrichment.installedSoftware = software.installed;
+    if (networkDetail?.openPorts?.length) enrichment.openPorts = networkDetail.openPorts;
+    if (certificates?.length)          enrichment.certificates = certificates;
+
+    const osString = `${os.name}${os.version ? ' ' + os.version : ''}${os.buildNumber ? ' (' + os.buildNumber + ')' : ''}`;
+
     if (deviceAsset) {
       deviceAsset = await prisma.asset.update({
         where: { id: deviceAsset.id },
@@ -253,11 +326,12 @@ router.post('/report', applyReportLimit, agentAuth, async (req, res, next) => {
           name: `${hardware.make} ${hardware.model}`,
           make: hardware.make,
           model: hardware.model,
-          os:   `${os.name}${os.version ? ' ' + os.version : ''}${os.buildNumber ? ' (' + os.buildNumber + ')' : ''}`,
+          os:   osString,
           ram:  hardware.ramGB ? `${hardware.ramGB} GB` : undefined,
           storage: storageStr,
           notes,
           updatedAt: new Date(),
+          ...enrichment,
         },
       });
     } else {
@@ -275,13 +349,54 @@ router.post('/report', applyReportLimit, agentAuth, async (req, res, next) => {
           warrantyExpiry: new Date(Date.now() + 3 * 365 * 86400000),
           cost:           0,
           currency:       'USD',
-          os:             `${os.name}${os.version ? ' ' + os.version : ''}${os.buildNumber ? ' (' + os.buildNumber + ')' : ''}`,
+          os:             osString,
           ram:            hardware.ramGB ? `${hardware.ramGB} GB` : undefined,
           storage:        storageStr,
           detectionSource:'Blimp Agent',
           notes,
+          ...enrichment,
         },
       });
+    }
+
+    // ── Auto-link or create Person from agent identity scan ─────────────
+    let personLinked = false;
+    if (identity?.currentUser && deviceAsset) {
+      const userName = identity.currentUser;
+      const userEmail = identity.currentUserEmail;
+
+      // Try to find existing person by email or name
+      let person = userEmail
+        ? await prisma.person.findUnique({ where: { email: userEmail } })
+        : null;
+      if (!person) {
+        person = await prisma.person.findFirst({
+          where: { name: { equals: userName, mode: 'insensitive' as const } },
+        });
+      }
+
+      // Auto-create person if not found
+      if (!person && userEmail) {
+        person = await prisma.person.create({
+          data: {
+            name: userName,
+            email: userEmail,
+            department: 'Unknown',
+            title: 'Unknown',
+            location: `${hostname} (Agent)`,
+            startDate: new Date(),
+          },
+        });
+      }
+
+      // Assign device to person
+      if (person) {
+        await prisma.asset.update({
+          where: { id: deviceAsset.id },
+          data: { assignedTo: person.name, assignedToId: person.id },
+        });
+        personLinked = true;
+      }
     }
 
     // ── 2. Upsert monitor assets ─────────────────────────────────────────────
@@ -402,6 +517,7 @@ router.post('/report', applyReportLimit, agentAuth, async (req, res, next) => {
       monitorsAdded,
       monitorsUpdated,
       peripheralsAdded,
+      personLinked,
     });
   } catch (err) {
     next(err);

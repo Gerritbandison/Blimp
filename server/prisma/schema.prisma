@@ -91,6 +91,23 @@ model Asset {
   detectionSource String?
   qrCode          String?
 
+  // Agent-enriched fields (populated by Blimp Agent scans)
+  antivirusName    String?
+  antivirusVersion String?
+  antivirusEnabled Boolean?
+  lastPatchDate    DateTime?
+  pendingUpdates   Int?
+  currentUser      String?
+  adJoined         Boolean?
+  adDomain         String?
+  entraJoined      Boolean?
+  mdmProvider      String?
+  mdmCompliance    String?
+  firewallEnabled  Boolean?
+  installedSoftware Json?   // Array<{ name, version, publisher?, installDate? }>
+  openPorts         Json?   // Array<{ port, process, protocol }>
+  certificates      Json?   // Array<{ name, issuer, expiry?, store }>
+
   // Depreciation
   depMethod       String?
   depUsefulLife   Int?

@@ -4,7 +4,7 @@ import {
   Plus, Download, Filter, Search, Trash2, Archive,
   Monitor, SlidersHorizontal, Upload, Edit3,
   Laptop, Smartphone, Server, Printer, Network, Package,
-  LayoutGrid, List, ChevronDown, ChevronRight, MapPin, User, DollarSign,
+  LayoutGrid, List, ChevronDown, ChevronRight, MapPin, User,
 } from 'lucide-react';
 import { DataTable, type Column } from '../../components/common/DataTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
@@ -148,58 +148,105 @@ function groupAssets(assets: Asset[], mode: GroupMode): GroupBlock[] {
     });
 }
 
+function sourceLabel(src?: string): string | null {
+  if (!src || src === 'Manual') return null;
+  if (src.includes('Intune')) return 'Intune';
+  if (src.includes('Ninja')) return 'Ninja';
+  if (src.includes('Agent')) return 'Agent';
+  return src;
+}
+
 function AssetCard({ asset, onClick }: { asset: Asset; onClick: () => void }) {
   const meta = TYPE_META[asset.type] ?? TYPE_META.Other;
   const warrantyDays = Math.ceil((new Date(asset.warrantyExpiry).getTime() - Date.now()) / 86400000);
   const warrantyWarning = asset.warrantyExpiry && warrantyDays < 90;
+  const srcLabel = sourceLabel(asset.detectionSource);
+  const hasSecurityData = asset.antivirusName || asset.mdmProvider || asset.currentUser;
   return (
     <div
       onClick={onClick}
-      className="bg-white border border-gray-200 rounded-xl p-4 hover:border-blue-300 hover:shadow-md transition-all duration-150 cursor-pointer group"
+      className="bg-white rounded-2xl border border-gray-200/60 p-5 hover:shadow-lg hover:shadow-gray-200/50 hover:border-gray-300 transition-all duration-200 cursor-pointer group"
     >
-      <div className="flex items-start gap-3">
-        <div className={clsx('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', meta.bg)}>
-          <span className={meta.color}>{meta.icon}</span>
+      {/* Top: Icon + Name + Status */}
+      <div className="flex items-start gap-3.5">
+        <div className={clsx('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', meta.bg)}>
+          <span className={clsx(meta.color, 'scale-110')}>{meta.icon}</span>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors">{asset.name}</p>
-          <p className="text-xs text-gray-400 truncate">{asset.make} {asset.model}</p>
+          <p className="text-[13px] font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors leading-tight">{asset.name}</p>
+          <p className="text-[11px] text-gray-400 truncate mt-0.5">{asset.make} · {asset.model}</p>
         </div>
         <StatusBadge status={asset.status} />
       </div>
 
-      <div className="mt-3 space-y-1.5">
-        <div className="flex items-center gap-1.5 text-xs text-gray-500">
-          <User size={10} className="shrink-0 text-gray-400" />
+      {/* Middle: Key details */}
+      <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2">
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <User size={10} className="shrink-0 text-gray-300" />
           {asset.assignedTo
             ? <span className="truncate font-medium text-gray-700">{asset.assignedTo}</span>
-            : <span className="text-gray-400 italic">Unassigned</span>}
+            : <span className="text-gray-300 italic">Unassigned</span>}
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-gray-500">
-          <MapPin size={10} className="shrink-0 text-gray-400" />
-          <span className="truncate">{asset.location}</span>
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <MapPin size={10} className="shrink-0 text-gray-300" />
+          <span className="truncate text-gray-500">{asset.location}</span>
         </div>
+        {asset.os && (
+          <div className="col-span-2 text-[10px] text-gray-400 truncate">{asset.os}</div>
+        )}
       </div>
 
-      <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          <code className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">{asset.tag}</code>
-          {asset.detectionSource && asset.detectionSource !== 'Manual' && (
-            <span className="text-[9px] bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded font-medium uppercase">
-              {asset.detectionSource.includes('Intune') ? 'Intune' : asset.detectionSource.includes('Ninja') ? 'Ninja' : asset.detectionSource.includes('Agent') ? 'Agent' : asset.detectionSource}
+      {/* Security indicators for agent-scanned devices */}
+      {hasSecurityData && (
+        <div className="mt-3 flex items-center gap-1.5 flex-wrap">
+          {asset.antivirusEnabled != null && (
+            <span className={clsx(
+              'inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full',
+              asset.antivirusEnabled ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'
+            )}>
+              {asset.antivirusEnabled ? 'AV' : 'No AV'}
+            </span>
+          )}
+          {asset.firewallEnabled != null && (
+            <span className={clsx(
+              'inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full',
+              asset.firewallEnabled ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'
+            )}>
+              {asset.firewallEnabled ? 'FW' : 'No FW'}
+            </span>
+          )}
+          {asset.mdmProvider && (
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-500">
+              MDM
+            </span>
+          )}
+          {asset.entraJoined && (
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-500">
+              Entra
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1">
+      )}
+
+      {/* Footer: Tag + Source + Cost */}
+      <div className="mt-4 pt-3 border-t border-gray-100/80 flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <code className="text-[10px] bg-gray-50 text-gray-400 px-1.5 py-0.5 rounded-md font-mono">{asset.tag}</code>
+          {srcLabel && (
+            <span className="text-[9px] bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded-md font-semibold uppercase tracking-wide">
+              {srcLabel}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
           {warrantyWarning && (
-            <span className={clsx('text-[10px] font-medium', warrantyDays < 0 ? 'text-red-500' : 'text-yellow-600')}>
+            <span className={clsx('text-[10px] font-semibold', warrantyDays < 0 ? 'text-red-500' : 'text-amber-500')}>
               {warrantyDays < 0 ? 'Expired' : `${warrantyDays}d`}
             </span>
           )}
-          <div className="flex items-center gap-0.5 text-xs font-semibold text-gray-700">
-            <DollarSign size={10} className="text-gray-400" />
-            {asset.cost.toLocaleString()}
-          </div>
+          <span className="text-[12px] font-bold text-gray-800 tabular-nums">
+            ${asset.cost.toLocaleString()}
+          </span>
         </div>
       </div>
     </div>
@@ -440,12 +487,12 @@ export function AssetList() {
   ];
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-6 lg:p-8 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Assets</h1>
-          <p className="text-[13px] text-gray-500 mt-0.5">{assets.length} total assets · {assets.filter(a => a.status === 'Deployed').length} deployed</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Assets</h1>
+          <p className="text-[13px] text-gray-500 mt-1">{assets.length} total assets · {assets.filter(a => a.status === 'Deployed').length} deployed</p>
         </div>
         <div className="flex items-center gap-2">
           {canEdit && (
@@ -669,17 +716,17 @@ export function AssetList() {
         const groups = groupAssets(filtered, groupBy);
         if (groups.length === 0) {
           return (
-            <div className="card p-12 text-center">
-              <Monitor size={36} className="text-gray-200 mx-auto mb-3" />
-              <p className="text-sm font-medium text-gray-500">No assets found</p>
-              <p className="text-xs text-gray-400 mt-1">
-                {search || statusFilter || typeFilter ? 'Try adjusting your filters' : 'Add your first asset to get started'}
+            <div className="bg-white rounded-2xl border border-gray-200/60 p-16 text-center">
+              <Monitor size={40} className="text-gray-200 mx-auto mb-4" />
+              <p className="text-sm font-semibold text-gray-500">No assets found</p>
+              <p className="text-xs text-gray-400 mt-1.5">
+                {search || statusFilter || typeFilter ? 'Try adjusting your search or filters' : 'Add your first asset to get started'}
               </p>
             </div>
           );
         }
         return (
-          <div key={groupBy} className="space-y-4">
+          <div key={groupBy} className="space-y-6">
             {groups.map(({ groupLabel, subGroups, flatAssets, totalCost, totalCount }) => {
               const isCollapsed = collapsedGroups.has(groupLabel);
               const toggleCollapse = () => setCollapsedGroups((prev) => {
@@ -687,103 +734,96 @@ export function AssetList() {
                 next.has(groupLabel) ? next.delete(groupLabel) : next.add(groupLabel);
                 return next;
               });
-              const headerIcon = groupBy === 'location'
-                ? <MapPin size={14} className="text-blue-500 shrink-0" />
-                : (() => { const m = TYPE_META[groupLabel] ?? TYPE_META.Other; return <span className={clsx('flex-shrink-0', m.color)}>{m.icon}</span>; })();
-              // Summary pills for location mode: show type breakdown; for category mode: show location breakdown
-              const summaryPills = groupBy === 'location'
-                ? subGroups.map(({ subLabel, assets: ta }) => {
-                    const m = TYPE_META[subLabel] ?? TYPE_META.Other;
-                    return (
-                      <span key={subLabel} className={clsx('flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full', m.bg, m.color)}>
-                        {m.icon} {subLabel} ({ta.length})
-                      </span>
-                    );
-                  })
-                : [...new Set(flatAssets.map(a => a.location || 'Unknown'))].slice(0, 4).map((loc) => (
-                    <span key={loc} className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                      <MapPin size={9} /> {loc}
-                    </span>
-                  ));
+              const headerMeta = groupBy === 'location'
+                ? { icon: <MapPin size={15} className="text-blue-500" />, bg: 'bg-blue-50' }
+                : (() => { const m = TYPE_META[groupLabel] ?? TYPE_META.Other; return { icon: <span className={m.color}>{m.icon}</span>, bg: m.bg }; })();
+              const deployed = (flatAssets.length ? flatAssets : subGroups.flatMap(s => s.assets)).filter(a => a.status === 'Deployed').length;
 
               return (
-                <div key={groupLabel} className="card overflow-hidden">
-                  {/* Group header */}
+                <div key={groupLabel} className="bg-white rounded-2xl border border-gray-200/60 overflow-hidden">
+                  {/* Group header — clean Apple-style section */}
                   <button
                     onClick={toggleCollapse}
-                    className="w-full flex items-center gap-3 px-5 py-3.5 bg-gray-50 border-b border-gray-100 hover:bg-gray-100/60 transition-colors text-left"
+                    className="w-full flex items-center gap-3.5 px-6 py-4 hover:bg-gray-50/50 transition-colors text-left"
                   >
-                    {isCollapsed ? <ChevronRight size={14} className="text-gray-400 shrink-0" /> : <ChevronDown size={14} className="text-gray-400 shrink-0" />}
-                    {headerIcon}
-                    <span className="flex-1 text-sm font-semibold text-gray-800">{groupLabel}</span>
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <span className="font-semibold text-gray-700">{totalCount}</span> assets
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <DollarSign size={10} />
-                        <span className="font-semibold text-gray-700">{totalCost.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span> total value
-                      </span>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {summaryPills}
+                    <div className={clsx('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', headerMeta.bg)}>
+                      {headerMeta.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-[15px] font-semibold text-gray-900">{groupLabel}</span>
+                        <span className="text-[12px] text-gray-400 font-medium">{totalCount}</span>
                       </div>
+                      <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-400">
+                        <span>{deployed} deployed</span>
+                        <span className="text-gray-200">|</span>
+                        <span>${totalCost.toLocaleString('en-US', { maximumFractionDigits: 0 })} total value</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {groupBy === 'location' && subGroups.slice(0, 3).map(({ subLabel, assets: ta }) => {
+                        const m = TYPE_META[subLabel] ?? TYPE_META.Other;
+                        return (
+                          <span key={subLabel} className={clsx('flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-lg', m.bg, m.color)}>
+                            {m.icon} {ta.length}
+                          </span>
+                        );
+                      })}
+                      {isCollapsed
+                        ? <ChevronRight size={16} className="text-gray-300 shrink-0" />
+                        : <ChevronDown size={16} className="text-gray-300 shrink-0" />
+                      }
                     </div>
                   </button>
 
                   {/* Content */}
                   {!isCollapsed && (
-                    groupBy === 'category'
-                      ? (
-                        // Category mode: flat grid of assets, optionally sub-divided by location
-                        <div className="p-5">
-                          <div className="flex items-center gap-2 mb-3">
-                            <span className="text-xs text-gray-400">
-                              {flatAssets.filter(a => a.assignedTo).length} assigned · {flatAssets.filter(a => !a.assignedTo).length} unassigned
-                            </span>
+                    <>
+                      <div className="h-px bg-gray-100" />
+                      {groupBy === 'category'
+                        ? (
+                          <div className="p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {flatAssets.map((asset) => (
+                                <AssetCard
+                                  key={asset.id}
+                                  asset={asset}
+                                  onClick={() => { void navigate(`/assets/${asset.id}`); }}
+                                />
+                              ))}
+                            </div>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                            {flatAssets.map((asset) => (
-                              <AssetCard
-                                key={asset.id}
-                                asset={asset}
-                                onClick={() => { void navigate(`/assets/${asset.id}`); }}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )
-                      : (
-                        // Location mode: sub-grouped by device type
-                        <div className="divide-y divide-gray-50">
-                          {subGroups.map(({ subLabel, assets: typeAssets }) => {
-                            const meta = TYPE_META[subLabel] ?? TYPE_META.Other;
-                            return (
-                              <div key={subLabel} className="p-5">
-                                <div className="flex items-center gap-2 mb-3">
-                                  <div className={clsx('w-6 h-6 rounded-md flex items-center justify-center', meta.bg)}>
-                                    <span className={meta.color}>{meta.icon}</span>
+                        )
+                        : (
+                          <div className="divide-y divide-gray-50">
+                            {subGroups.map(({ subLabel, assets: typeAssets }) => {
+                              const meta = TYPE_META[subLabel] ?? TYPE_META.Other;
+                              return (
+                                <div key={subLabel} className="p-6">
+                                  <div className="flex items-center gap-2.5 mb-4">
+                                    <div className={clsx('w-7 h-7 rounded-lg flex items-center justify-center', meta.bg)}>
+                                      <span className={meta.color}>{meta.icon}</span>
+                                    </div>
+                                    <span className="text-xs font-semibold text-gray-700">{subLabel}s</span>
+                                    <span className="text-[11px] text-gray-300 font-medium">{typeAssets.length}</span>
+                                    <div className="flex-1 h-px bg-gray-100 ml-2" />
                                   </div>
-                                  <span className="text-xs font-semibold text-gray-700">{subLabel}s</span>
-                                  <span className="text-xs text-gray-400">({typeAssets.length})</span>
-                                  <div className="flex-1 h-px bg-gray-100 ml-1" />
-                                  <span className="text-xs text-gray-400">
-                                    {typeAssets.filter((a) => a.assignedTo).length} assigned · {typeAssets.filter((a) => !a.assignedTo).length} unassigned
-                                  </span>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {typeAssets.map((asset) => (
+                                      <AssetCard
+                                        key={asset.id}
+                                        asset={asset}
+                                        onClick={() => { void navigate(`/assets/${asset.id}`); }}
+                                      />
+                                    ))}
+                                  </div>
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                                  {typeAssets.map((asset) => (
-                                    <AssetCard
-                                      key={asset.id}
-                                      asset={asset}
-                                      onClick={() => { void navigate(`/assets/${asset.id}`); }}
-                                    />
-                                  ))}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )
+                              );
+                            })}
+                          </div>
+                        )
+                      }
+                    </>
                   )}
                 </div>
               );

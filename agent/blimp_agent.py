@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Blimp Agent - Hardware Inventory Collector
-Version 1.2.0
+Blimp Agent - Hardware & Security Inventory Collector
+Version 2.0.0
 
 Cross-platform agent that collects:
   - Hardware info: make, model, serial number, CPU, RAM, storage
@@ -9,6 +9,13 @@ Cross-platform agent that collects:
   - Display info: EDID manufacturer, model, serial, resolution, year
   - Network info: hostname, IP addresses
   - Peripherals: keyboards, mice, docks, hubs, webcams, headsets (USB + Bluetooth)
+
+Windows-enriched data (v2.0):
+  - Installed applications + versions (from registry)
+  - Security: antivirus product + status, firewall, patch date, pending updates
+  - Identity: current user, AD/Entra join status, MDM enrollment
+  - Network detail: open/listening ports
+  - Certificates: local machine certificate store
 
 Outputs a JSON report conforming to the Blimp AgentReport schema.
 
@@ -44,7 +51,7 @@ import urllib.request
 import urllib.error
 from typing import Any, Dict, List, Optional
 
-AGENT_VERSION = "1.2.0"
+AGENT_VERSION = "2.0.0"
 AGENT_PORT = 51723
 SYSTEM = platform.system()  # 'Darwin', 'Windows', 'Linux'
 
@@ -550,6 +557,246 @@ def collect_peripherals_windows() -> List[Dict]:
     return peripherals
 
 
+def collect_installed_software_windows() -> List[Dict[str, Any]]:
+    """Collect installed applications + versions from the Windows registry via PowerShell."""
+    apps: List[Dict[str, Any]] = []
+    try:
+        script = (
+            "$paths = @("
+            "'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*',"
+            "'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*'"
+            "); "
+            "Get-ItemProperty $paths | "
+            "Where-Object { $_.DisplayName -and $_.DisplayName -ne '' } | "
+            "Select-Object DisplayName, DisplayVersion, Publisher, InstallDate | "
+            "Sort-Object DisplayName -Unique"
+        )
+        raw = ps_json(script)
+        entries = raw if isinstance(raw, list) else ([raw] if isinstance(raw, dict) else [])
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            name = (entry.get("DisplayName") or "").strip()
+            if not name:
+                continue
+            apps.append({
+                "name": name,
+                "version": (entry.get("DisplayVersion") or "").strip() or "Unknown",
+                "publisher": (entry.get("Publisher") or "").strip() or None,
+                "installDate": (entry.get("InstallDate") or "").strip() or None,
+            })
+    except Exception:
+        pass
+    return apps
+
+
+def collect_security_windows() -> Dict[str, Any]:
+    """Collect antivirus, firewall, patch status from Windows."""
+    result: Dict[str, Any] = {}
+
+    # Antivirus via Windows Security Center
+    try:
+        av_script = (
+            "Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct | "
+            "Select-Object displayName, pathToSignedProductExe, productState"
+        )
+        av_raw = ps_json(av_script)
+        avs = av_raw if isinstance(av_raw, list) else ([av_raw] if isinstance(av_raw, dict) else [])
+        for av in avs:
+            if not isinstance(av, dict):
+                continue
+            state = av.get("productState", 0)
+            # Bits 12-16 = scanner enabled; bits 4-8 = definitions up to date
+            enabled = bool((state >> 12) & 0x1)
+            defs_ok = ((state >> 4) & 0xF) == 0
+            result["antivirus"] = {
+                "name": (av.get("displayName") or "Unknown").strip(),
+                "version": None,
+                "enabled": enabled,
+                "definitionsUpToDate": defs_ok,
+            }
+            break  # Use the first (primary) AV product
+    except Exception:
+        pass
+
+    # Firewall status
+    try:
+        fw_script = "Get-NetFirewallProfile -Profile Domain,Private,Public | Select-Object Enabled"
+        fw_raw = ps_json(fw_script)
+        fws = fw_raw if isinstance(fw_raw, list) else ([fw_raw] if isinstance(fw_raw, dict) else [])
+        all_enabled = all(fw.get("Enabled", False) for fw in fws if isinstance(fw, dict))
+        result["firewall"] = {"enabled": all_enabled}
+    except Exception:
+        pass
+
+    # Last patch date & pending updates
+    try:
+        hotfix_script = (
+            "Get-HotFix | Sort-Object InstalledOn -Descending | "
+            "Select-Object -First 1 InstalledOn"
+        )
+        hotfix_raw = ps_json(hotfix_script)
+        if isinstance(hotfix_raw, dict) and hotfix_raw.get("InstalledOn"):
+            installed_on = hotfix_raw["InstalledOn"]
+            if isinstance(installed_on, str):
+                result["lastPatchDate"] = installed_on
+            elif isinstance(installed_on, dict) and installed_on.get("DateTime"):
+                result["lastPatchDate"] = installed_on["DateTime"]
+    except Exception:
+        pass
+
+    try:
+        pending_script = (
+            "$sess = New-Object -ComObject Microsoft.Update.Session; "
+            "$search = $sess.CreateUpdateSearcher(); "
+            "$result = $search.Search('IsInstalled=0'); "
+            "$result.Updates.Count"
+        )
+        count_str = run_ps(pending_script, timeout=30)
+        if count_str.isdigit():
+            result["pendingUpdates"] = int(count_str)
+    except Exception:
+        pass
+
+    return result
+
+
+def collect_identity_windows() -> Dict[str, Any]:
+    """Collect current user, AD/Entra join status, MDM enrollment."""
+    result: Dict[str, Any] = {}
+
+    # Currently logged-in user
+    try:
+        user_str = run_ps("[System.Security.Principal.WindowsIdentity]::GetCurrent().Name")
+        if user_str:
+            # Format: DOMAIN\username or username
+            parts = user_str.split("\\")
+            result["currentUser"] = parts[-1] if parts else user_str
+            if len(parts) > 1:
+                result["adDomain"] = parts[0]
+    except Exception:
+        pass
+
+    # Try to get email from Azure AD / Entra
+    try:
+        email_script = (
+            "dsregcmd /status 2>$null | "
+            "Select-String 'UserEmail' | "
+            "ForEach-Object { ($_ -split ':',2)[1].Trim() }"
+        )
+        email = run_ps(email_script)
+        if email and "@" in email:
+            result["currentUserEmail"] = email
+    except Exception:
+        pass
+
+    # AD join status
+    try:
+        dsreg = run_ps("dsregcmd /status")
+        if dsreg:
+            result["adJoined"] = "AzureAdJoined : YES" in dsreg or "DomainJoined : YES" in dsreg
+            result["entraJoined"] = "AzureAdJoined : YES" in dsreg
+            # Extract tenant ID
+            tenant_match = re.search(r"TenantId\s*:\s*(\S+)", dsreg)
+            if tenant_match:
+                result["entraTenantId"] = tenant_match.group(1)
+    except Exception:
+        pass
+
+    # MDM enrollment
+    try:
+        mdm_script = (
+            "Get-ItemProperty -Path "
+            "'HKLM:\\SOFTWARE\\Microsoft\\Enrollments\\*' "
+            "-ErrorAction SilentlyContinue | "
+            "Where-Object { $_.ProviderID } | "
+            "Select-Object ProviderID, EnrollmentState"
+        )
+        mdm_raw = ps_json(mdm_script)
+        mdms = mdm_raw if isinstance(mdm_raw, list) else ([mdm_raw] if isinstance(mdm_raw, dict) else [])
+        for m in mdms:
+            if not isinstance(m, dict):
+                continue
+            provider = (m.get("ProviderID") or "").strip()
+            if provider:
+                result["mdmProvider"] = provider
+                state = m.get("EnrollmentState", 0)
+                result["mdmCompliance"] = "Enrolled" if state == 1 else "Pending"
+                break
+    except Exception:
+        pass
+
+    return result
+
+
+def collect_open_ports_windows() -> List[Dict[str, Any]]:
+    """Collect open/listening ports on Windows."""
+    ports: List[Dict[str, Any]] = []
+    try:
+        script = (
+            "Get-NetTCPConnection -State Listen | "
+            "Select-Object LocalPort, OwningProcess, "
+            "@{N='ProcessName';E={(Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).ProcessName}} | "
+            "Sort-Object LocalPort -Unique | "
+            "Select-Object -First 50"
+        )
+        raw = ps_json(script)
+        entries = raw if isinstance(raw, list) else ([raw] if isinstance(raw, dict) else [])
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            ports.append({
+                "port": entry.get("LocalPort", 0),
+                "process": (entry.get("ProcessName") or "unknown").strip(),
+                "protocol": "TCP",
+            })
+    except Exception:
+        pass
+    return ports
+
+
+def collect_certificates_windows() -> List[Dict[str, Any]]:
+    """Collect certificates from the local machine store."""
+    certs: List[Dict[str, Any]] = []
+    try:
+        script = (
+            "Get-ChildItem Cert:\\LocalMachine\\My, Cert:\\LocalMachine\\Root | "
+            "Where-Object { $_.NotAfter -gt (Get-Date) } | "
+            "Select-Object Subject, Issuer, NotAfter, PSParentPath -First 30"
+        )
+        raw = ps_json(script)
+        entries = raw if isinstance(raw, list) else ([raw] if isinstance(raw, dict) else [])
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            subject = (entry.get("Subject") or "").strip()
+            if not subject:
+                continue
+            # Extract CN from subject
+            cn_match = re.search(r"CN=([^,]+)", subject)
+            name = cn_match.group(1).strip() if cn_match else subject[:60]
+            issuer_raw = (entry.get("Issuer") or "").strip()
+            cn_match_i = re.search(r"CN=([^,]+)", issuer_raw)
+            issuer = cn_match_i.group(1).strip() if cn_match_i else issuer_raw[:60]
+            expiry = None
+            not_after = entry.get("NotAfter")
+            if isinstance(not_after, str):
+                expiry = not_after
+            elif isinstance(not_after, dict) and not_after.get("DateTime"):
+                expiry = not_after["DateTime"]
+            store_path = (entry.get("PSParentPath") or "").strip()
+            store = "Root" if "Root" in store_path else "Personal"
+            certs.append({
+                "name": name,
+                "issuer": issuer,
+                "expiry": expiry,
+                "store": store,
+            })
+    except Exception:
+        pass
+    return certs
+
+
 def collect_windows() -> Dict[str, Any]:
     sys_info = ps_json("Get-CimInstance Win32_ComputerSystem") or {}
     bios_info = ps_json("Get-CimInstance Win32_BIOS") or {}
@@ -634,6 +881,13 @@ def collect_windows() -> Dict[str, Any]:
                 "isBuiltIn": is_builtin,
             })
 
+    # ── Collect enriched Windows data ────────────────────────────────────────
+    installed_apps = collect_installed_software_windows()
+    security_info  = collect_security_windows()
+    identity_info  = collect_identity_windows()
+    open_ports     = collect_open_ports_windows()
+    certs          = collect_certificates_windows()
+
     return {
         "platform": "Windows",
         "hostname": socket.gethostname(),
@@ -653,6 +907,11 @@ def collect_windows() -> Dict[str, Any]:
         },
         "displays": displays,
         "peripherals": collect_peripherals_windows(),
+        "software": {"installed": installed_apps} if installed_apps else None,
+        "security": security_info if security_info else None,
+        "identity": identity_info if identity_info else None,
+        "networkDetail": {"openPorts": open_ports} if open_ports else None,
+        "certificates": certs if certs else None,
     }
 
 

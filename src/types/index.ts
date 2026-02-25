@@ -46,6 +46,22 @@ export interface Asset {
   };
   detectionSource?: string;
   qrCode?: string;
+  // Agent-enriched fields (Windows)
+  antivirusName?: string;
+  antivirusVersion?: string;
+  antivirusEnabled?: boolean;
+  lastPatchDate?: string;
+  pendingUpdates?: number;
+  currentUser?: string;
+  adJoined?: boolean;
+  adDomain?: string;
+  entraJoined?: boolean;
+  mdmProvider?: string;
+  mdmCompliance?: string;
+  firewallEnabled?: boolean;
+  installedSoftware?: AgentInstalledApp[];
+  openPorts?: AgentOpenPort[];
+  certificates?: AgentCertificate[];
 }
 
 export interface LifecycleEvent {
@@ -244,6 +260,51 @@ export interface AgentPeripheral {
   isBuiltIn: boolean;
 }
 
+export interface AgentInstalledApp {
+  name: string;
+  version: string;
+  publisher?: string;
+  installDate?: string;
+}
+
+export interface AgentAntivirus {
+  name: string;
+  version?: string;
+  enabled: boolean;
+  definitionsUpToDate: boolean;
+}
+
+export interface AgentSecurity {
+  antivirus?: AgentAntivirus;
+  firewall?: { enabled: boolean };
+  lastPatchDate?: string;
+  pendingUpdates?: number;
+}
+
+export interface AgentIdentity {
+  currentUser?: string;
+  currentUserEmail?: string;
+  adJoined?: boolean;
+  adDomain?: string;
+  entraJoined?: boolean;
+  entraTenantId?: string;
+  mdmProvider?: string;
+  mdmCompliance?: string;
+}
+
+export interface AgentOpenPort {
+  port: number;
+  process: string;
+  protocol: string;
+}
+
+export interface AgentCertificate {
+  name: string;
+  issuer: string;
+  expiry?: string;
+  store: string;
+}
+
 export interface AgentReport {
   version: string;
   generatedAt: string;
@@ -270,6 +331,11 @@ export interface AgentReport {
   };
   displays: AgentDisplay[];
   peripherals: AgentPeripheral[];
+  software?: { installed: AgentInstalledApp[] };
+  security?: AgentSecurity;
+  identity?: AgentIdentity;
+  networkDetail?: { openPorts: AgentOpenPort[] };
+  certificates?: AgentCertificate[];
 }
 
 export interface AgentDeviceRecord {
