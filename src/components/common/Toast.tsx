@@ -13,7 +13,12 @@ export function ToastContainer() {
   const { toasts, removeToast } = useStore();
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none">
+    <div
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"
+    >
       {toasts.map((toast) => {
         const config = toastConfig[toast.type];
         const Icon = config.icon;
@@ -29,6 +34,7 @@ export function ToastContainer() {
             <p className={clsx('text-sm font-medium flex-1', config.text)}>{toast.message}</p>
             <button
               onClick={() => removeToast(toast.id)}
+              aria-label="Dismiss notification"
               className={clsx('hover:opacity-70 transition-opacity', config.text)}
             >
               <X size={14} />
