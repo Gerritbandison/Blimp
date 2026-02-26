@@ -81,11 +81,30 @@ router.get('/', authenticate, async (req, res) => {
     ];
   }
 
+  const cursor = qstr(req.query.cursor);
+  const take = Math.min(limit, 500);
+
+  if (cursor) {
+    const apps = await prisma.app.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      take: take + 1,
+      cursor: { id: cursor },
+      skip: 1,
+      include: { licenses: true, payments: true },
+    });
+    const hasNext = apps.length > take;
+    const page = hasNext ? apps.slice(0, take) : apps;
+    const nextCursor = hasNext ? page[page.length - 1].id : null;
+    res.json({ data: page.map((a) => formatApp(a as unknown as Record<string, unknown>)), nextCursor });
+    return;
+  }
+
   const [apps, total] = await Promise.all([
     prisma.app.findMany({
       where,
       orderBy: { updatedAt: 'desc' },
-      take: Math.min(limit, 500),
+      take,
       skip: offset,
       include: { licenses: true, payments: true },
     }),

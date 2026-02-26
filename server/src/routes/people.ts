@@ -63,11 +63,29 @@ router.get('/', authenticate, async (req, res) => {
     ];
   }
 
+  const cursor = qstr(req.query.cursor);
+  const take = Math.min(limit, 500);
+
+  if (cursor) {
+    const people = await prisma.person.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      take: take + 1,
+      cursor: { id: cursor },
+      skip: 1,
+    });
+    const hasNext = people.length > take;
+    const page = hasNext ? people.slice(0, take) : people;
+    const nextCursor = hasNext ? page[page.length - 1].id : null;
+    res.json({ data: page.map((p) => formatPerson(p as unknown as Record<string, unknown>)), nextCursor });
+    return;
+  }
+
   const [people, total] = await Promise.all([
     prisma.person.findMany({
       where,
       orderBy: { updatedAt: 'desc' },
-      take: Math.min(limit, 500),
+      take,
       skip: offset,
     }),
     prisma.person.count({ where }),

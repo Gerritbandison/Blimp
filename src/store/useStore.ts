@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type {
   Asset, App, Person, Integration, Notification,
   OrgUser, AssetGroup, CompanySettings, NotificationSettings,
@@ -116,6 +116,24 @@ const defaultNotificationSettings: NotificationSettings = {
   offboarding: true,
   shadowIt: true,
 };
+
+// Debounced localStorage — avoids writing on every single action.
+// Reads are immediate; writes are coalesced into a trailing 500ms window.
+const debouncedLocalStorage = (() => {
+  const timers = new Map<string, ReturnType<typeof setTimeout>>();
+  return {
+    getItem: (name: string) => localStorage.getItem(name),
+    setItem: (name: string, value: string) => {
+      const existing = timers.get(name);
+      if (existing) clearTimeout(existing);
+      timers.set(name, setTimeout(() => {
+        localStorage.setItem(name, value);
+        timers.delete(name);
+      }, 500));
+    },
+    removeItem: (name: string) => localStorage.removeItem(name),
+  };
+})();
 
 export const useStore = create<AppState>()(
   persist(
@@ -375,6 +393,7 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'blimp-itam-store',
+      storage: createJSONStorage(() => debouncedLocalStorage),
       partialize: (state) => ({
         assets: state.assets,
         apps: state.apps,

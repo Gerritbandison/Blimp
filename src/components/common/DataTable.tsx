@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -47,6 +48,18 @@ export function DataTable<T extends { id: string }>({
 
   const totalPages = Math.ceil(sorted.length / pageSize);
   const paged = sorted.slice((page - 1) * pageSize, page * pageSize);
+
+  // Virtual scrolling for large pages (> 50 visible rows)
+  const ROW_HEIGHT = 44;
+  const VIRTUAL_THRESHOLD = 50;
+  const useVirtual = paged.length > VIRTUAL_THRESHOLD;
+  const parentRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: paged.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 10,
+  });
 
   function handleSort(key: string) {
     if (sortKey === key) {
@@ -103,119 +116,152 @@ export function DataTable<T extends { id: string }>({
     );
   }
 
+  function renderRow(row: T) {
+    return (
+      <tr
+        key={row.id}
+        className={clsx(
+          'group transition-colors duration-100',
+          onRowClick && 'cursor-pointer hover:bg-blue-50/40',
+          selectedIds.includes(row.id) && 'bg-blue-50/50'
+        )}
+        onClick={() => onRowClick?.(row)}
+      >
+        {selectable && (
+          <td className="w-10 py-3 px-4" onClick={(e) => e.stopPropagation()}>
+            <input
+              type="checkbox"
+              aria-label={`Select row`}
+              className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              checked={selectedIds.includes(row.id)}
+              onChange={() => toggleRow(row.id)}
+            />
+          </td>
+        )}
+        {visibleColumns.map((col) => (
+          <td key={String(col.key)} className="py-3 px-4 text-gray-700 whitespace-nowrap">
+            {col.render
+              ? col.render(row)
+              : (() => { const v = (row as Record<string, string | number | boolean | null | undefined>)[String(col.key)]; return v == null ? '—' : String(v); })()}
+          </td>
+        ))}
+      </tr>
+    );
+  }
+
+  const tableHead = (
+    <thead>
+      <tr className="border-b border-gray-100 bg-gray-50/60">
+        {selectable && (
+          <th className="w-10 py-3 px-4" scope="col">
+            <input
+              type="checkbox"
+              aria-label="Select all rows on this page"
+              className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              checked={paged.length > 0 && paged.every((r) => selectedIds.includes(r.id))}
+              onChange={toggleAll}
+            />
+          </th>
+        )}
+        {visibleColumns.map((col) => {
+          const isSortable = col.sortable !== false;
+          const isActive = sortKey === String(col.key);
+          const ariaSortValue: React.AriaAttributes['aria-sort'] = isActive
+            ? sortDir === 'asc' ? 'ascending' : 'descending'
+            : isSortable ? 'none' : undefined;
+
+          return (
+            <th
+              key={String(col.key)}
+              scope="col"
+              aria-sort={ariaSortValue}
+              tabIndex={isSortable ? 0 : undefined}
+              className={clsx(
+                'text-left py-3 px-4 text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap',
+                isSortable && 'cursor-pointer hover:text-gray-700 select-none',
+                col.width && `w-${col.width}`
+              )}
+              onClick={() => isSortable && handleSort(String(col.key))}
+              onKeyDown={(e) => {
+                if (isSortable && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  handleSort(String(col.key));
+                }
+              }}
+            >
+              <span className="flex items-center gap-1">
+                {col.label}
+                {isSortable && (
+                  <span className="flex flex-col -space-y-0.5" aria-hidden="true">
+                    <ChevronUp
+                      size={10}
+                      className={clsx(isActive && sortDir === 'asc' ? 'text-blue-600' : 'text-gray-300')}
+                    />
+                    <ChevronDown
+                      size={10}
+                      className={clsx(isActive && sortDir === 'desc' ? 'text-blue-600' : 'text-gray-300')}
+                    />
+                  </span>
+                )}
+              </span>
+            </th>
+          );
+        })}
+      </tr>
+    </thead>
+  );
+
+  const emptyBody = (
+    <tbody>
+      <tr>
+        <td
+          colSpan={visibleColumns.length + (selectable ? 1 : 0)}
+          className="py-16 text-center"
+        >
+          {emptyState || (
+            <div className="text-gray-400">
+              <p className="text-base font-medium">No records found</p>
+              <p className="text-sm mt-1">Try adjusting your filters or search</p>
+            </div>
+          )}
+        </td>
+      </tr>
+    </tbody>
+  );
+
   return (
     <div className={clsx('overflow-hidden', className)}>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100 bg-gray-50/60">
-              {selectable && (
-                <th className="w-10 py-3 px-4" scope="col">
-                  <input
-                    type="checkbox"
-                    aria-label="Select all rows on this page"
-                    className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    checked={paged.length > 0 && paged.every((r) => selectedIds.includes(r.id))}
-                    onChange={toggleAll}
-                  />
-                </th>
-              )}
-              {visibleColumns.map((col) => {
-                const isSortable = col.sortable !== false;
-                const isActive = sortKey === String(col.key);
-                const ariaSortValue: React.AriaAttributes['aria-sort'] = isActive
-                  ? sortDir === 'asc' ? 'ascending' : 'descending'
-                  : isSortable ? 'none' : undefined;
-
-                return (
-                  <th
-                    key={String(col.key)}
-                    scope="col"
-                    aria-sort={ariaSortValue}
-                    tabIndex={isSortable ? 0 : undefined}
-                    className={clsx(
-                      'text-left py-3 px-4 text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap',
-                      isSortable && 'cursor-pointer hover:text-gray-700 select-none',
-                      col.width && `w-${col.width}`
-                    )}
-                    onClick={() => isSortable && handleSort(String(col.key))}
-                    onKeyDown={(e) => {
-                      if (isSortable && (e.key === 'Enter' || e.key === ' ')) {
-                        e.preventDefault();
-                        handleSort(String(col.key));
-                      }
-                    }}
-                  >
-                    <span className="flex items-center gap-1">
-                      {col.label}
-                      {isSortable && (
-                        <span className="flex flex-col -space-y-0.5" aria-hidden="true">
-                          <ChevronUp
-                            size={10}
-                            className={clsx(isActive && sortDir === 'asc' ? 'text-blue-600' : 'text-gray-300')}
-                          />
-                          <ChevronDown
-                            size={10}
-                            className={clsx(isActive && sortDir === 'desc' ? 'text-blue-600' : 'text-gray-300')}
-                          />
-                        </span>
-                      )}
-                    </span>
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100/80">
-            {paged.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={visibleColumns.length + (selectable ? 1 : 0)}
-                  className="py-16 text-center"
-                >
-                  {emptyState || (
-                    <div className="text-gray-400">
-                      <p className="text-base font-medium">No records found</p>
-                      <p className="text-sm mt-1">Try adjusting your filters or search</p>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            ) : (
-              paged.map((row) => (
-                <tr
-                  key={row.id}
-                  className={clsx(
-                    'group transition-colors duration-100',
-                    onRowClick && 'cursor-pointer hover:bg-blue-50/40',
-                    selectedIds.includes(row.id) && 'bg-blue-50/50'
-                  )}
-                  onClick={() => onRowClick?.(row)}
-                >
-                  {selectable && (
-                    <td className="w-10 py-3 px-4" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        aria-label={`Select row`}
-                        className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        checked={selectedIds.includes(row.id)}
-                        onChange={() => toggleRow(row.id)}
-                      />
-                    </td>
-                  )}
-                  {visibleColumns.map((col) => (
-                    <td key={String(col.key)} className="py-3 px-4 text-gray-700 whitespace-nowrap">
-                      {col.render
-                        ? col.render(row)
-                        : (() => { const v = (row as Record<string, string | number | boolean | null | undefined>)[String(col.key)]; return v == null ? '—' : String(v); })()}
-                    </td>
-                  ))}
-                </tr>
-              ))
+      {useVirtual ? (
+        /* Virtualized table for large page sizes */
+        <div ref={parentRef} className="overflow-auto" style={{ maxHeight: 600 }}>
+          <table className="w-full text-sm">
+            {tableHead}
+            {paged.length === 0 ? emptyBody : (
+              <tbody className="divide-y divide-gray-100/80">
+                {/* Top spacer */}
+                {virtualizer.getVirtualItems()[0]?.start > 0 && (
+                  <tr><td style={{ height: virtualizer.getVirtualItems()[0].start }} /></tr>
+                )}
+                {virtualizer.getVirtualItems().map((vItem) => renderRow(paged[vItem.index]))}
+                {/* Bottom spacer */}
+                {(() => { const items = virtualizer.getVirtualItems(); const last = items[items.length - 1]; return last && last.end < virtualizer.getTotalSize() ? <tr><td style={{ height: virtualizer.getTotalSize() - last.end }} /></tr> : null; })()}
+              </tbody>
             )}
-          </tbody>
-        </table>
-      </div>
+          </table>
+        </div>
+      ) : (
+        /* Standard table rendering */
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            {tableHead}
+            {paged.length === 0 ? emptyBody : (
+              <tbody className="divide-y divide-gray-100/80">
+                {paged.map((row) => renderRow(row))}
+              </tbody>
+            )}
+          </table>
+        </div>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (

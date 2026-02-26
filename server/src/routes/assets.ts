@@ -73,18 +73,37 @@ router.get('/', authenticate, async (req, res) => {
     ];
   }
 
-  const [assets, total] = await Promise.all([
-    prisma.asset.findMany({
+  const cursor = qstr(req.query.cursor);
+  const take = Math.min(limit, 500);
+
+  if (cursor) {
+    // Cursor-based pagination — more efficient for large tables
+    const assets = await prisma.asset.findMany({
       where,
       orderBy: { updatedAt: 'desc' },
-      take: Math.min(limit, 500),
-      skip: offset,
+      take: take + 1,
+      cursor: { id: cursor },
+      skip: 1, // skip the cursor itself
       include: { lifecycle: true },
-    }),
-    prisma.asset.count({ where }),
-  ]);
-
-  res.json({ data: assets.map(formatAsset), total, limit, offset });
+    });
+    const hasNext = assets.length > take;
+    const page = hasNext ? assets.slice(0, take) : assets;
+    const nextCursor = hasNext ? page[page.length - 1].id : null;
+    res.json({ data: page.map(formatAsset), nextCursor });
+  } else {
+    // Offset-based pagination (default, backward compatible)
+    const [assets, total] = await Promise.all([
+      prisma.asset.findMany({
+        where,
+        orderBy: { updatedAt: 'desc' },
+        take,
+        skip: offset,
+        include: { lifecycle: true },
+      }),
+      prisma.asset.count({ where }),
+    ]);
+    res.json({ data: assets.map(formatAsset), total, limit, offset });
+  }
 });
 
 // ─── GET /assets/:id ────────────────────────────────────────────────────────
