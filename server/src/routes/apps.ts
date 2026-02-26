@@ -81,11 +81,30 @@ router.get('/', authenticate, async (req, res) => {
     ];
   }
 
+  const cursor = qstr(req.query.cursor);
+  const take = Math.min(limit, 500);
+
+  if (cursor) {
+    const apps = await prisma.app.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      take: take + 1,
+      cursor: { id: cursor },
+      skip: 1,
+      include: { licenses: true, payments: true },
+    });
+    const hasNext = apps.length > take;
+    const page = hasNext ? apps.slice(0, take) : apps;
+    const nextCursor = hasNext ? page[page.length - 1].id : null;
+    res.json({ data: page.map((a) => formatApp(a as unknown as Record<string, unknown>)), nextCursor });
+    return;
+  }
+
   const [apps, total] = await Promise.all([
     prisma.app.findMany({
       where,
       orderBy: { updatedAt: 'desc' },
-      take: Math.min(limit, 500),
+      take,
       skip: offset,
       include: { licenses: true, payments: true },
     }),
@@ -193,6 +212,34 @@ router.patch('/:id', authenticate, async (req, res) => {
 
   const app = await prisma.app.update({ where: { id }, data });
   res.json(formatApp(app as unknown as Record<string, unknown>));
+});
+
+// ─── DELETE /apps/:id ──────────────────────────────────────────────────────
+
+router.delete('/:id', authenticate, async (req, res) => {
+  const id = param(req.params.id);
+
+  const app = await prisma.app.findUnique({ where: { id } });
+  if (!app) {
+    res.status(404).json({ error: 'App not found' });
+    return;
+  }
+
+  await prisma.app.delete({ where: { id } });
+
+  await prisma.activityEntry.create({
+    data: {
+      action: 'App Deleted',
+      user: req.user!.email,
+      details: `${app.name} removed from app register`,
+      module: 'Apps',
+      entityId: app.id,
+      entityName: app.name,
+      userId: req.user!.userId,
+    },
+  });
+
+  res.status(204).end();
 });
 
 export default router;

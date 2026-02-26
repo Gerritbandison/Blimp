@@ -4,6 +4,10 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './auth/AuthContext.tsx'
 import { ErrorBoundary } from './components/common/ErrorBoundary.tsx'
+import { reportWebVitals } from './utils/vitals.ts'
+import { validateEnv } from './utils/env.ts'
+
+validateEnv()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -14,3 +18,5 @@ createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </StrictMode>,
 )
+
+reportWebVitals()

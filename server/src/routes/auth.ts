@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { config } from '../config.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireRole } from '../middleware/auth.js';
 import { prisma } from '../lib/prisma.js';
 
 const router = Router();
@@ -84,8 +84,9 @@ router.post('/login', applyLoginLimit, async (req, res) => {
 });
 
 // ─── POST /auth/register ────────────────────────────────────────────────────
+// Protected: only authenticated Admins can create new user accounts.
 
-router.post('/register', async (req, res) => {
+router.post('/register', authenticate, requireRole('Admin'), async (req, res) => {
   const body = registerSchema.parse(req.body);
 
   const existing = await prisma.user.findUnique({

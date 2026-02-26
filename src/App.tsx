@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PageLoader } from './components/common/PageLoader';
@@ -40,6 +40,7 @@ const Integrations = lazy(() => import('./pages/Integrations').then((m) => ({ de
 const Settings    = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
 const AuditLog    = lazy(() => import('./pages/AuditLog').then((m) => ({ default: m.AuditLog })));
 const Login       = lazy(() => import('./pages/Login').then((m) => ({ default: m.Login })));
+const NotFound    = lazy(() => import('./pages/NotFound').then((m) => ({ default: m.NotFound })));
 
 export default function App() {
   return (
@@ -70,7 +71,7 @@ export default function App() {
             <Route path="integrations" element={<Integrations />} />
             <Route path="audit-log" element={<AuditLog />} />
             <Route path="settings" element={<Settings />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
       </Suspense>

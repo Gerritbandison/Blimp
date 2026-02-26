@@ -11,11 +11,18 @@ const router = Router();
 router.get('/', authenticate, async (req, res) => {
   const module = qstr(req.query.module);
   const search = qstr(req.query.search);
+  const from = qstr(req.query.from);
+  const to = qstr(req.query.to);
   const limit = qint(req.query.limit, 100);
   const offset = qint(req.query.offset, 0);
 
   const where: Prisma.ActivityEntryWhereInput = {};
   if (module) where.module = module;
+  if (from || to) {
+    where.timestamp = {};
+    if (from) where.timestamp.gte = new Date(from);
+    if (to) where.timestamp.lte = new Date(to);
+  }
   if (search) {
     where.OR = [
       { action: { contains: search, mode: 'insensitive' } },

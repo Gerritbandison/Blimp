@@ -137,6 +137,7 @@ model Asset {
   @@index([assignedToId])
   @@index([serial])
   @@index([parentAssetId])
+  @@index([detectionSource])
 }
 
 model LifecycleEvent {
@@ -225,6 +226,7 @@ model App {
 
   @@index([status])
   @@index([vendor])
+  @@index([renewalDate])
 }
 
 model License {

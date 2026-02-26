@@ -63,11 +63,29 @@ router.get('/', authenticate, async (req, res) => {
     ];
   }
 
+  const cursor = qstr(req.query.cursor);
+  const take = Math.min(limit, 500);
+
+  if (cursor) {
+    const people = await prisma.person.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      take: take + 1,
+      cursor: { id: cursor },
+      skip: 1,
+    });
+    const hasNext = people.length > take;
+    const page = hasNext ? people.slice(0, take) : people;
+    const nextCursor = hasNext ? page[page.length - 1].id : null;
+    res.json({ data: page.map((p) => formatPerson(p as unknown as Record<string, unknown>)), nextCursor });
+    return;
+  }
+
   const [people, total] = await Promise.all([
     prisma.person.findMany({
       where,
       orderBy: { updatedAt: 'desc' },
-      take: Math.min(limit, 500),
+      take,
       skip: offset,
     }),
     prisma.person.count({ where }),
@@ -339,6 +357,40 @@ router.patch('/:id', authenticate, async (req, res) => {
 
   const person = await prisma.person.update({ where: { id }, data });
   res.json(formatPerson(person as unknown as Record<string, unknown>));
+});
+
+// ─── DELETE /people/:id ────────────────────────────────────────────────────
+
+router.delete('/:id', authenticate, async (req, res) => {
+  const id = param(req.params.id);
+
+  const person = await prisma.person.findUnique({ where: { id } });
+  if (!person) {
+    res.status(404).json({ error: 'Person not found' });
+    return;
+  }
+
+  // Unassign any assets linked to this person before deletion
+  await prisma.asset.updateMany({
+    where: { assignedToId: id },
+    data: { assignedTo: null, assignedToId: null },
+  });
+
+  await prisma.person.delete({ where: { id } });
+
+  await prisma.activityEntry.create({
+    data: {
+      action: 'Person Deleted',
+      user: req.user!.email,
+      details: `${person.name} removed from system`,
+      module: 'People',
+      entityId: person.id,
+      entityName: person.name,
+      userId: req.user!.userId,
+    },
+  });
+
+  res.status(204).end();
 });
 
 export default router;
