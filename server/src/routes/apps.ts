@@ -195,4 +195,32 @@ router.patch('/:id', authenticate, async (req, res) => {
   res.json(formatApp(app as unknown as Record<string, unknown>));
 });
 
+// ─── DELETE /apps/:id ──────────────────────────────────────────────────────
+
+router.delete('/:id', authenticate, async (req, res) => {
+  const id = param(req.params.id);
+
+  const app = await prisma.app.findUnique({ where: { id } });
+  if (!app) {
+    res.status(404).json({ error: 'App not found' });
+    return;
+  }
+
+  await prisma.app.delete({ where: { id } });
+
+  await prisma.activityEntry.create({
+    data: {
+      action: 'App Deleted',
+      user: req.user!.email,
+      details: `${app.name} removed from app register`,
+      module: 'Apps',
+      entityId: app.id,
+      entityName: app.name,
+      userId: req.user!.userId,
+    },
+  });
+
+  res.status(204).end();
+});
+
 export default router;

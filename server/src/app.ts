@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import { config } from './config.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import authRouter from './routes/auth.js';
@@ -9,6 +10,7 @@ import peopleRouter from './routes/people.js';
 import integrationsRouter from './routes/integrations.js';
 import activityRouter from './routes/activity.js';
 import agentRouter from './routes/agent.js';
+import { prisma } from './lib/prisma.js';
 
 /**
  * Factory that creates and configures the Express app without starting
@@ -18,11 +20,48 @@ import agentRouter from './routes/agent.js';
 export function createApp() {
   const app = express();
 
+  // Security headers
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        fontSrc: ["'self'"],
+        connectSrc: ["'self'"],
+        frameSrc: ["'none'"],
+        objectSrc: ["'none'"],
+      },
+    },
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+    frameguard: { action: 'deny' },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  }));
+
   app.use(cors({ origin: config.corsOrigin, credentials: true }));
   app.use(express.json({ limit: '2mb' }));
 
-  app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  // Liveness probe — checks DB connectivity
+  app.get('/health', async (_req, res) => {
+    let dbStatus: 'ok' | 'error' = 'ok';
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+    } catch {
+      dbStatus = 'error';
+    }
+    const status = dbStatus === 'ok' ? 'ok' : 'degraded';
+    const code = status === 'ok' ? 200 : 503;
+    res.status(code).json({
+      status,
+      timestamp: new Date().toISOString(),
+      checks: { database: dbStatus },
+    });
+  });
+
+  // Readiness probe — separate endpoint for orchestrators
+  app.get('/ready', (_req, res) => {
+    res.json({ ready: true, timestamp: new Date().toISOString() });
   });
 
   app.use('/auth', authRouter);

@@ -4,6 +4,7 @@ import { authenticate, requireRole } from '../middleware/auth.js';
 import { mapIntegrationStatusFromDb, intuneDeviceToAssetData, ninjaDeviceToAssetData } from '../utils/mappers.js';
 import { param } from '../utils/query.js';
 import { prisma } from '../lib/prisma.js';
+import { encrypt, decrypt } from '../utils/encryption.js';
 import {
   validateIntuneCredentials,
   fetchIntuneDevices,
@@ -91,7 +92,7 @@ router.post('/intune/connect', authenticate, requireRole('Admin', 'ITManager'), 
       syncFrequency: body.syncFrequency,
       features: body.enabledFeatures,
       errorMessage: null,
-      configEncrypted: JSON.stringify(creds), // TODO: encrypt with AES-256
+      configEncrypted: encrypt(JSON.stringify(creds)),
     },
     create: {
       id: 'intune',
@@ -102,7 +103,7 @@ router.post('/intune/connect', authenticate, requireRole('Admin', 'ITManager'), 
       connectedAt: new Date(),
       syncFrequency: body.syncFrequency,
       features: body.enabledFeatures,
-      configEncrypted: JSON.stringify(creds),
+      configEncrypted: encrypt(JSON.stringify(creds)),
     },
   });
 
@@ -118,7 +119,7 @@ router.post('/intune/sync', authenticate, requireRole('Admin', 'ITManager'), asy
     return;
   }
 
-  const creds = JSON.parse(integration.configEncrypted) as IntuneCredentials;
+  const creds = JSON.parse(decrypt(integration.configEncrypted)) as IntuneCredentials;
 
   // Mark as syncing
   await prisma.integration.update({
@@ -129,30 +130,35 @@ router.post('/intune/sync', authenticate, requireRole('Admin', 'ITManager'), asy
   try {
     const devices = await fetchIntuneDevices(creds);
 
+    // Pre-load all persons and existing Intune assets to avoid N+1 queries
+    const [allPersons, existingAssets] = await Promise.all([
+      prisma.person.findMany(),
+      prisma.asset.findMany({ where: { detectionSource: 'Microsoft Intune' } }),
+    ]);
+    const personByEmail = new Map(allPersons.map((p) => [p.email.toLowerCase(), p]));
+    const assetBySerial = new Map(existingAssets.map((a) => [a.serial, a]));
+
     let assetsAdded = 0;
     let assetsUpdated = 0;
 
     for (const device of devices) {
       const assetData = intuneDeviceToAssetData(device);
 
-      // Resolve person by userPrincipalName (email)
+      // Resolve person by userPrincipalName (email) — O(1) lookup
       let personLink: { assignedToId: string; assignedTo: string } | undefined;
       if (device.userPrincipalName) {
-        const person = await prisma.person.findFirst({
-          where: { email: { equals: device.userPrincipalName, mode: 'insensitive' } },
-        });
+        const person = personByEmail.get(device.userPrincipalName.toLowerCase());
         if (person) personLink = { assignedToId: person.id, assignedTo: person.name };
       }
 
-      const existing = await prisma.asset.findFirst({
-        where: { serial: assetData.serial, detectionSource: 'Microsoft Intune' },
-      });
+      const existing = assetBySerial.get(assetData.serial);
 
       if (existing) {
         await prisma.asset.update({ where: { id: existing.id }, data: { ...assetData, ...personLink } });
         assetsUpdated++;
       } else {
-        await prisma.asset.create({ data: { ...(assetData as Parameters<typeof prisma.asset.create>[0]['data']), ...personLink } });
+        const created = await prisma.asset.create({ data: { ...(assetData as Parameters<typeof prisma.asset.create>[0]['data']), ...personLink } });
+        assetBySerial.set(assetData.serial, created);
         assetsAdded++;
       }
     }
@@ -163,9 +169,8 @@ router.post('/intune/sync', authenticate, requireRole('Admin', 'ITManager'), asy
       const users = await fetchEntraUsers(creds);
       for (const user of users) {
         if (!user.mail) continue;
-        const existing = await prisma.person.findUnique({ where: { email: user.mail } });
-        if (!existing) {
-          await prisma.person.create({
+        if (!personByEmail.has(user.mail.toLowerCase())) {
+          const created = await prisma.person.create({
             data: {
               name: user.displayName,
               email: user.mail,
@@ -176,6 +181,7 @@ router.post('/intune/sync', authenticate, requireRole('Admin', 'ITManager'), asy
               startDate: new Date(),
             },
           });
+          personByEmail.set(user.mail.toLowerCase(), created);
           peopleAdded++;
         }
       }
@@ -241,7 +247,7 @@ router.post('/ninjaone/connect', authenticate, requireRole('Admin', 'ITManager')
       syncFrequency: body.syncFrequency,
       features: body.enabledFeatures,
       errorMessage: null,
-      configEncrypted: JSON.stringify(creds),
+      configEncrypted: encrypt(JSON.stringify(creds)),
     },
     create: {
       id: 'ninjaone',
@@ -252,7 +258,7 @@ router.post('/ninjaone/connect', authenticate, requireRole('Admin', 'ITManager')
       connectedAt: new Date(),
       syncFrequency: body.syncFrequency,
       features: body.enabledFeatures,
-      configEncrypted: JSON.stringify(creds),
+      configEncrypted: encrypt(JSON.stringify(creds)),
     },
   });
 
@@ -268,7 +274,7 @@ router.post('/ninjaone/sync', authenticate, requireRole('Admin', 'ITManager'), a
     return;
   }
 
-  const creds = JSON.parse(integration.configEncrypted) as NinjaOneCredentials;
+  const creds = JSON.parse(decrypt(integration.configEncrypted)) as NinjaOneCredentials;
 
   await prisma.integration.update({
     where: { id: 'ninjaone' },
@@ -278,30 +284,35 @@ router.post('/ninjaone/sync', authenticate, requireRole('Admin', 'ITManager'), a
   try {
     const devices = await fetchNinjaOneDevices(creds);
 
+    // Pre-load all persons and existing NinjaOne assets to avoid N+1 queries
+    const [allPersons, existingAssets] = await Promise.all([
+      prisma.person.findMany(),
+      prisma.asset.findMany({ where: { detectionSource: 'NinjaOne' } }),
+    ]);
+    const personByName = new Map(allPersons.map((p) => [p.name.toLowerCase(), p]));
+    const assetBySerial = new Map(existingAssets.map((a) => [a.serial, a]));
+
     let assetsAdded = 0;
     let assetsUpdated = 0;
 
     for (const device of devices) {
       const assetData = ninjaDeviceToAssetData(device);
 
-      // Resolve person by assignedUser display name
+      // Resolve person by assignedUser display name — O(1) lookup
       let personLink: { assignedToId: string; assignedTo: string } | undefined;
       if (device.assignedUser) {
-        const person = await prisma.person.findFirst({
-          where: { name: { equals: device.assignedUser, mode: 'insensitive' } },
-        });
+        const person = personByName.get(device.assignedUser.toLowerCase());
         if (person) personLink = { assignedToId: person.id, assignedTo: person.name };
       }
 
-      const existing = await prisma.asset.findFirst({
-        where: { serial: assetData.serial, detectionSource: 'NinjaOne' },
-      });
+      const existing = assetBySerial.get(assetData.serial);
 
       if (existing) {
         await prisma.asset.update({ where: { id: existing.id }, data: { ...assetData, ...personLink } });
         assetsUpdated++;
       } else {
-        await prisma.asset.create({ data: { ...(assetData as Parameters<typeof prisma.asset.create>[0]['data']), ...personLink } });
+        const created = await prisma.asset.create({ data: { ...(assetData as Parameters<typeof prisma.asset.create>[0]['data']), ...personLink } });
+        assetBySerial.set(assetData.serial, created);
         assetsAdded++;
       }
     }

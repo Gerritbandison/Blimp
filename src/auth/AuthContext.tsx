@@ -38,13 +38,18 @@ interface AuthContextValue extends AuthState {
 }
 
 // ─── Demo credentials ────────────────────────────────────────────────────────
-// In production these would be validated via an API call, not client-side.
+// Only active when VITE_DEMO_MODE=true (default when no API is configured).
+// In production set VITE_API_BASE_URL and leave VITE_DEMO_MODE unset.
 
-const DEMO_USERS: Array<AuthUser & { password: string }> = [
-  { email: 'admin@blimp.io',   password: 'admin123',   name: 'Admin User',   role: 'Admin' },
-  { email: 'finance@blimp.io', password: 'finance123', name: 'Finance User', role: 'Finance' },
-  { email: 'viewer@blimp.io',  password: 'viewer123',  name: 'Viewer User',  role: 'Read Only' },
-];
+const DEMO_MODE = !API_ENABLED || import.meta.env.VITE_DEMO_MODE === 'true';
+
+const DEMO_USERS: Array<AuthUser & { password: string }> = DEMO_MODE
+  ? [
+      { email: 'admin@blimp.io',   password: 'admin123',   name: 'Admin User',   role: 'Admin' },
+      { email: 'finance@blimp.io', password: 'finance123', name: 'Finance User', role: 'Finance' },
+      { email: 'viewer@blimp.io',  password: 'viewer123',  name: 'Viewer User',  role: 'Read Only' },
+    ]
+  : [];
 
 // ─── Rate limiting ────────────────────────────────────────────────────────────
 
@@ -181,6 +186,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // ── Demo / local mode: validate against hardcoded credentials ───────────
+      if (!DEMO_MODE) {
+        return { ok: false, error: 'Backend API is not configured. Set VITE_API_BASE_URL.' };
+      }
       // Simulate network latency for the demo
       await new Promise((r) => setTimeout(r, 400));
 

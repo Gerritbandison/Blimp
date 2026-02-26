@@ -246,6 +246,41 @@ router.delete('/devices/:id', authenticate, requireRole('Admin', 'ITManager'), a
   }
 });
 
+/** POST /agent/devices/:id/rotate — generate a new token for an existing device */
+router.post('/devices/:id/rotate', authenticate, requireRole('Admin', 'ITManager'), async (req, res, next) => {
+  try {
+    const id = req.params['id'] as string;
+
+    const device = await prisma.agentDevice.findUnique({ where: { id } });
+    if (!device) {
+      res.status(404).json({ error: 'Device not found' });
+      return;
+    }
+    if (!device.isActive) {
+      res.status(400).json({ error: 'Cannot rotate token for a deactivated device' });
+      return;
+    }
+
+    const token     = generateToken();
+    const prefix    = token.slice(0, 12);
+    const tokenHash = await bcrypt.hash(token, 10);
+
+    await prisma.agentDevice.update({
+      where: { id },
+      data:  { tokenHash, tokenPrefix: prefix },
+    });
+
+    res.json({
+      id:          device.id,
+      name:        device.name,
+      tokenPrefix: prefix,
+      token,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ─── Agent health check ───────────────────────────────────────────────────────
 
 router.get('/health', agentAuth, (req, res) => {

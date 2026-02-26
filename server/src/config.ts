@@ -8,6 +8,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(1).default('dev-secret-change-me'),
   JWT_EXPIRES_IN: z.string().default('8h'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
+  ENCRYPTION_KEY: z.string().default(''),
 });
 
 function loadConfig() {
@@ -37,6 +38,14 @@ function loadConfig() {
     }
     if (!process.env.DATABASE_URL) {
       console.error('[blimp-server] FATAL: DATABASE_URL is required in production');
+      process.exit(1);
+    }
+    if (!env.ENCRYPTION_KEY || env.ENCRYPTION_KEY.length !== 64) {
+      console.error('[blimp-server] FATAL: ENCRYPTION_KEY must be a 64-char hex string in production. Generate with: openssl rand -hex 32');
+      process.exit(1);
+    }
+    if (env.CORS_ORIGIN === '*') {
+      console.error('[blimp-server] FATAL: CORS_ORIGIN must not be wildcard (*) in production');
       process.exit(1);
     }
   }

@@ -341,4 +341,38 @@ router.patch('/:id', authenticate, async (req, res) => {
   res.json(formatPerson(person as unknown as Record<string, unknown>));
 });
 
+// ─── DELETE /people/:id ────────────────────────────────────────────────────
+
+router.delete('/:id', authenticate, async (req, res) => {
+  const id = param(req.params.id);
+
+  const person = await prisma.person.findUnique({ where: { id } });
+  if (!person) {
+    res.status(404).json({ error: 'Person not found' });
+    return;
+  }
+
+  // Unassign any assets linked to this person before deletion
+  await prisma.asset.updateMany({
+    where: { assignedToId: id },
+    data: { assignedTo: null, assignedToId: null },
+  });
+
+  await prisma.person.delete({ where: { id } });
+
+  await prisma.activityEntry.create({
+    data: {
+      action: 'Person Deleted',
+      user: req.user!.email,
+      details: `${person.name} removed from system`,
+      module: 'People',
+      entityId: person.id,
+      entityName: person.name,
+      userId: req.user!.userId,
+    },
+  });
+
+  res.status(204).end();
+});
+
 export default router;
